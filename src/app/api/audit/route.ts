@@ -194,17 +194,17 @@ function buildAuditPrompt(files: { path: string; content: string }[], context: s
     filesSummary += `\n\n━━━ FILE: ${file.path} ━━━\n${file.content}`;
   }
 
-  return \`You are an expert iOS/mobile App Store reviewer and compliance auditor. 
+  return `You are an expert iOS/mobile App Store reviewer and compliance auditor. 
 You have deep knowledge of Apple's App Store Review Guidelines (latest version), 
 Human Interface Guidelines, and common rejection reasons.
 
 A user has uploaded their app's source code for a pre-submission compliance audit. 
 Analyze ALL the provided files carefully and generate a comprehensive, structured report.
 
-\${context ? \`ADDITIONAL CONTEXT FROM USER:\\n\${context}\\n\\n\` : ''}
+${context ? `ADDITIONAL CONTEXT FROM USER:\n${context}\n\n` : ''}
 
-SOURCE FILES (\${files.length} files found):
-\${filesSummary}
+SOURCE FILES (${files.length} files found):
+${filesSummary}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -297,7 +297,7 @@ End with a **Submission Readiness Score** (0-100%) and clear YES/NO recommendati
 on whether the app is ready for submission in its current state.
 
 IMPORTANT: Be thorough, specific, and cite actual file names and line patterns you found. 
-Do not give generic advice — base everything on the actual code provided.\`;
+Do not give generic advice — base everything on the actual code provided.`;
 }
 
 // ─── Main Route Handler ──────────────────────────────────────────────────────
@@ -307,7 +307,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // Create temp directory
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'auditi-audit-'));
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'igracias-audit-'));
 
     // Stream-parse the multipart upload — writes file directly to disk
     // without ever loading the full file into memory
@@ -327,7 +327,7 @@ export async function POST(req: NextRequest) {
       try {
         // Use -o (overwrite) and -q (quiet) flags;
         // maxBuffer increased for large archives that produce verbose output
-        await execAsync(\`unzip -o -q "\${filePath}" -d "\${extractDir}"\`, {
+        await execAsync(`unzip -o -q "${filePath}" -d "${extractDir}"`, {
           maxBuffer: 50 * 1024 * 1024, // 50MB stdout buffer for large archives
         });
       } catch (unzipError: any) {
@@ -393,7 +393,7 @@ export async function POST(req: NextRequest) {
           type: 'meta',
           filesScanned: files.length,
           fileNames: files.map(f => f.path),
-        }) + '\\n'));
+        }) + '\n'));
 
         try {
           let buffer = '';
@@ -402,7 +402,7 @@ export async function POST(req: NextRequest) {
             if (done) break;
 
             buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\\n');
+            const lines = buffer.split('\n');
             buffer = lines.pop() || '';
 
             for (const line of lines) {
@@ -416,7 +416,7 @@ export async function POST(req: NextRequest) {
                     controller.enqueue(encoder.encode(JSON.stringify({
                       type: 'content',
                       text: parsed.delta.text,
-                    }) + '\\n'));
+                    }) + '\n'));
                   }
                 } catch {
                   // Skip malformed JSON
@@ -429,7 +429,7 @@ export async function POST(req: NextRequest) {
           controller.enqueue(encoder.encode(JSON.stringify({
             type: 'error',
             message: 'Stream interrupted',
-          }) + '\\n'));
+          }) + '\n'));
         } finally {
           controller.close();
           // Clean up temp dir
