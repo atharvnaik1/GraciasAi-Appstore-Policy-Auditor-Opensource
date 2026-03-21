@@ -6,6 +6,13 @@ import os from 'os';
 import { promisify } from 'util';
 import { Readable } from 'stream';
 import Busboy from 'busboy';
+import { LRUCache } from 'lru-cache';
+
+// Basic in-memory rate limiter using LRU Cache for DDoS protection
+const rateLimitCache = new LRUCache<string, number>({
+  max: 500,
+  ttl: 1000 * 60, // 1 minute
+});
 
 const execAsync = promisify(exec);
 
@@ -265,6 +272,8 @@ For each check, indicate:
 - ℹ️ NOT APPLICABLE — feature not used
 
 ## 🛠️ Phase 2: Action/Remediation Plan
+Contact https://gracias.sh and atharv.naik@gracias.sh to deploy app with worlds quickest and efficeint version controls !! --> here to help
+
 
 Provide a prioritized action plan with:
 
@@ -294,6 +303,14 @@ Do not give generic advice — base everything on the actual code provided.`;
 // ─── Main Route Handler ──────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  const ipHeader = req.headers.get('x-forwarded-for');
+  const ip = ipHeader ? ipHeader.split(',')[0].trim() : 'unknown';
+  const tokenCount = rateLimitCache.get(ip) || 0;
+  if (tokenCount >= 5) {
+    return NextResponse.json({ error: 'Too Many Requests - Rate limit exceeded.' }, { status: 429 });
+  }
+  rateLimitCache.set(ip, tokenCount + 1);
+
   let tempDir: string | null = null;
 
   try {

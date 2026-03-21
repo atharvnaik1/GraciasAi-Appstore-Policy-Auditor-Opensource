@@ -6,12 +6,14 @@ import {
   Upload, FileArchive, X, Key, Send, Loader2,
   ChevronDown, ChevronRight, Download, ArrowLeft,
   ShieldCheck, AlertTriangle, CheckCircle, XCircle,
-  FileText, Sparkles, Info, Github, ExternalLink, Menu, Building2
+  FileText, Sparkles, Info, Github, ExternalLink, Menu, Building2, Eye
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Link from 'next/link';
+import { UserButton, SignInButton, SignedOut, SignedIn } from '@clerk/nextjs';
 
 type AuditPhase = 'idle' | 'uploading' | 'analyzing' | 'complete' | 'error';
+
 
 export default function AuditPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -22,6 +24,7 @@ export default function AuditPage() {
   const [reportContent, setReportContent] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [filesScanned, setFilesScanned] = useState(0);
+  const [visitorCount, setVisitorCount] = useState<number | null>(null);
   const [fileNames, setFileNames] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
@@ -30,11 +33,20 @@ export default function AuditPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const reportRef = useRef<HTMLDivElement>(null);
+  const completeReportRef = useRef<HTMLDivElement>(null);
 
   // Load API key from localStorage
   useEffect(() => {
     const saved = localStorage.getItem('claude_api_key');
     if (saved) setClaudeApiKey(saved);
+    
+    // Increment and fetch visitor count
+    fetch('/api/visitor')
+      .then(res => res.json())
+      .then(data => {
+        if (data.count) setVisitorCount(data.count);
+      })
+      .catch(console.error);
   }, []);
 
   // Save API key to localStorage
@@ -129,6 +141,7 @@ export default function AuditPage() {
       const decoder = new TextDecoder();
       let buffer = '';
       let accumulated = '';
+      let totalScannedTemp = 0;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -144,6 +157,7 @@ export default function AuditPage() {
             const parsed = JSON.parse(line);
             if (parsed.type === 'meta') {
               setFilesScanned(parsed.filesScanned);
+              totalScannedTemp = parsed.filesScanned;
               setFileNames(parsed.fileNames || []);
             } else if (parsed.type === 'content') {
               accumulated += parsed.text;
@@ -159,6 +173,14 @@ export default function AuditPage() {
       }
 
       setPhase('complete');
+      
+      // Attempt to save the report to MongoDB (if authenticated)
+      fetch('/api/save-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportContent: accumulated, filesScanned: totalScannedTemp })
+      }).catch((e) => console.log('Silently skipping save since auth might be missing:', e));
+
     } catch (err: any) {
       console.error('Audit error:', err);
       setErrorMessage(err.message || 'An unexpected error occurred');
@@ -175,6 +197,19 @@ export default function AuditPage() {
     a.download = `appstore-audit-report-${new Date().toISOString().slice(0, 10)}.md`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportPdf = async () => {
+    if (!reportContent || !completeReportRef.current) return;
+    const html2pdf = (await import('html2pdf.js')).default;
+    const opt = {
+      margin:       10,
+      filename:     `appstore-audit-report-${new Date().toISOString().slice(0, 10)}.pdf`,
+      image:        { type: 'jpeg' as 'jpeg' | 'png' | 'webp', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true, logging: false },
+      jsPDF:        { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as 'portrait' | 'landscape' }
+    };
+    html2pdf().from(completeReportRef.current).set(opt).save();
   };
 
   const isReady = file && claudeApiKey.trim();
@@ -225,6 +260,12 @@ export default function AuditPage() {
           </nav>
 
           <div className="flex items-center gap-4">
+            {visitorCount !== null && (
+              <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm font-medium text-blue-100 shadow-inner">
+                <Eye className="w-4 h-4 text-blue-400" />
+                <span>{visitorCount.toLocaleString()} visits</span>
+              </div>
+            )}
             <Link
               href="https://github.com/atharvnaik1/Gracias-Ai---Appstore-Playstore-Policy-Auditor-Opensource-"
               target="_blank"
@@ -233,6 +274,16 @@ export default function AuditPage() {
               <Github className="w-4 h-4" />
               <span className="hidden sm:inline">Star on GitHub</span>
             </Link>
+            <SignedOut>
+              <SignInButton mode="modal">
+                <button className="hidden sm:flex px-4 py-2 rounded-full bg-gradient-to-r from-primary to-blue-600 text-sm font-bold text-white hover:opacity-90 transition-opacity">
+                  Sign In
+                </button>
+              </SignInButton>
+            </SignedOut>
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
             <button className="md:hidden p-2 text-muted-foreground hover:text-white">
               <Menu className="w-5 h-5" />
             </button>
@@ -629,13 +680,22 @@ export default function AuditPage() {
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 md:gap-4 w-full md:w-auto relative z-10">
-                      <button
-                        onClick={handleExportReport}
-                        className="px-5 md:px-6 py-3 md:py-3.5 bg-white text-black hover:bg-gray-200 font-bold text-xs md:text-sm rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
-                      >
-                        <Download className="w-4 h-4" />
-                        Download Report
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleExportReport}
+                          className="px-4 md:px-6 py-3 md:py-3.5 bg-white text-black hover:bg-gray-200 font-bold text-xs md:text-sm rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+                        >
+                          <Download className="w-4 h-4" />
+                          MD
+                        </button>
+                        <button
+                          onClick={handleExportPdf}
+                          className="px-4 md:px-6 py-3 md:py-3.5 bg-blue-600 text-white hover:bg-blue-700 font-bold text-xs md:text-sm rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+                        >
+                          <FileText className="w-4 h-4" />
+                          PDF
+                        </button>
+                      </div>
                       <button
                         onClick={() => {
                           setPhase('idle');
@@ -666,7 +726,7 @@ export default function AuditPage() {
                   </div>
 
                   <div className="p-5 md:p-12 mb-6 md:mb-10 overflow-y-auto max-h-[70vh] md:max-h-[75vh] custom-scrollbar scroll-smooth">
-                    <div className={`prose prose-invert max-w-none text-sm md:text-base lg:text-lg leading-relaxed
+                    <div ref={completeReportRef} className={`prose prose-invert max-w-none text-sm md:text-base lg:text-lg leading-relaxed
                       prose-headings:text-foreground prose-h1:text-2xl md:prose-h1:text-4xl prose-h1:font-black prose-h1:tracking-tight prose-h1:border-b prose-h1:border-white/10 prose-h1:pb-4 md:prose-h1:pb-6 prose-h1:mb-6 md:prose-h1:mb-8
                       prose-h2:text-xl md:prose-h2:text-2xl prose-h2:font-bold prose-h2:mt-8 md:prose-h2:mt-12 prose-h2:mb-4 md:prose-h2:mb-6 prose-h2:text-white/90
                       prose-h3:text-lg md:prose-h3:text-xl prose-h3:font-semibold prose-h3:text-primary-foreground
