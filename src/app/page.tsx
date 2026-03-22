@@ -104,8 +104,8 @@ export default function AuditPage() {
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile) {
       const ext = droppedFile.name.split('.').pop()?.toLowerCase();
-      if (!['zip', 'ipa'].includes(ext || '')) {
-        setErrorMessage('Please upload a .zip or .ipa file');
+      if (ext !== 'ipa') {
+        setErrorMessage('Please upload an .ipa file');
       } else if (droppedFile.size > 150 * 1024 * 1024) {
         setErrorMessage('File exceeds maximum size of 150MB');
       } else {
@@ -119,8 +119,8 @@ export default function AuditPage() {
     const selected = e.target.files?.[0];
     if (selected) {
       const ext = selected.name.split('.').pop()?.toLowerCase();
-      if (!['zip', 'ipa'].includes(ext || '')) {
-        setErrorMessage('Please upload a .zip or .ipa file');
+      if (ext !== 'ipa') {
+        setErrorMessage('Please upload an .ipa file');
         e.target.value = '';
         return;
       }
@@ -428,7 +428,7 @@ export default function AuditPage() {
                         <input
                           ref={fileInputRef}
                           type="file"
-                          accept=".zip,.ipa"
+                          accept=".ipa"
                           onChange={handleFileSelect}
                           className="hidden"
                         />
@@ -459,10 +459,10 @@ export default function AuditPage() {
                                 <Upload className="w-7 h-7 text-muted-foreground group-hover:text-primary transition-colors" />
                               </div>
                               <p className="text-white font-semibold text-sm md:text-base mb-1">
-                                Drop your iOS project here
+                                Drop your .ipa file here
                               </p>
                               <p className="text-muted-foreground text-xs mb-3">
-                                <span className="text-primary">.zip</span> or <span className="text-primary">.ipa</span> files up to 150MB
+                                <span className="text-primary">.ipa</span> files up to 150MB
                               </p>
                               <span className="text-[10px] text-muted-foreground/60 font-medium">
                                 .swift, .m, .plist, .entitlements, .storyboard &amp; more
@@ -663,7 +663,7 @@ export default function AuditPage() {
                       step: '01',
                       color: 'from-primary to-purple-600',
                       title: 'Upload Your Project',
-                      desc: 'Drop your .zip source code or .ipa file. We extract and parse all relevant iOS source files while skipping build artifacts.',
+                      desc: 'Drop your .ipa file and we extract all relevant iOS source files while skipping compiled binaries and build artifacts.',
                       icon: <Upload className="w-5 h-5" />,
                     },
                     {

@@ -104,7 +104,7 @@ function parseMultipartStream(
         return;
       }
 
-      fileName = info.filename || 'upload.zip';
+      fileName = info.filename || 'upload.ipa';
       filePath = path.join(tempDir, fileName);
       fileReceived = true;
 
@@ -384,22 +384,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'API key is required' }, { status: 400 });
     }
 
-    // Extract if it's a zip/ipa
-    let extractDir = tempDir;
+    // Only accept .ipa files
     const ext = path.extname(fileName).toLowerCase();
+    if (ext !== '.ipa') {
+      return NextResponse.json({ error: 'Only .ipa files are accepted. Please upload an iOS app bundle.' }, { status: 400 });
+    }
 
-    if (ext === '.zip' || ext === '.ipa') {
-      extractDir = path.join(tempDir, 'extracted');
-      await fs.mkdir(extractDir, { recursive: true });
-      try {
-        // Use execFile (no shell) to prevent command injection via filenames
-        await execFileAsync('unzip', ['-o', '-q', filePath, '-d', extractDir], {
-          maxBuffer: 50 * 1024 * 1024, // 50MB stdout buffer for large archives
-        });
-      } catch (unzipError: any) {
-        // unzip may return non-zero for warnings but still extract files
-        console.warn('Unzip warning:', unzipError.stderr || unzipError.message);
-      }
+    // Extract .ipa (which is a zip archive)
+    const extractDir = path.join(tempDir, 'extracted');
+    await fs.mkdir(extractDir, { recursive: true });
+    try {
+      await execFileAsync('unzip', ['-o', '-q', filePath, '-d', extractDir], {
+        maxBuffer: 50 * 1024 * 1024,
+      });
+    } catch (unzipError: any) {
+      console.warn('Unzip warning:', unzipError.stderr || unzipError.message);
     }
 
     // Collect relevant source files
@@ -407,7 +406,7 @@ export async function POST(req: NextRequest) {
 
     if (files.length === 0) {
       return NextResponse.json(
-        { error: 'No relevant source files found in the uploaded archive. Please upload an iOS project folder as .zip or .ipa containing source code files (.swift, .m, .plist, .entitlements, etc.).' },
+        { error: 'No relevant source files found in the .ipa bundle. Please upload a valid iOS app (.ipa) file.' },
         { status: 400 }
       );
     }
