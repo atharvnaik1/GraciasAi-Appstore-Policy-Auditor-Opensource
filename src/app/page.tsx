@@ -7,7 +7,7 @@ import {
   ChevronDown, Download, ArrowLeft,
   ShieldCheck, AlertTriangle, CheckCircle, XCircle,
   FileText, Sparkles, Info, Github, ExternalLink, Building2, Star, Mail,
-  Zap, Lock, Code2, Clock, Apple, Cpu
+  Zap, Lock, Code2, Clock, Apple, Cpu, Printer
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Link from 'next/link';
@@ -67,6 +67,8 @@ export default function AuditPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [showFileList, setShowFileList] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [pdfExportError, setPdfExportError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const reportRef = useRef<HTMLDivElement>(null);
@@ -243,9 +245,32 @@ export default function AuditPage() {
   };
 
   const handleExportPdf = async () => {
-    if (!reportContent || !completeReportRef.current) return;
+    if (!reportContent) {
+      setPdfExportError('No report content to export');
+      return;
+    }
+    if (!completeReportRef.current) {
+      setPdfExportError('Report element not ready. Please try again.');
+      return;
+    }
+
+    setIsExportingPdf(true);
+    setPdfExportError(null);
+
     try {
-      const html2pdf = (await import('html2pdf.js')).default;
+      // Dynamic import with better error handling
+      let html2pdf: any;
+      try {
+        const module = await import('html2pdf.js');
+        html2pdf = module.default || module;
+      } catch (importError: any) {
+        console.error('Failed to load html2pdf.js:', importError);
+        throw new Error('Failed to load PDF library. Please check your internet connection and try again.');
+      }
+
+      if (typeof html2pdf !== 'function') {
+        throw new Error('PDF library not properly loaded. Please refresh and try again.');
+      }
 
       // Build a wrapper with branded header + watermark + report content
       const wrapper = document.createElement('div');
@@ -256,7 +281,7 @@ export default function AuditPage() {
       wrapper.style.color = '#1a1a1a';
       wrapper.style.width = '800px';
 
-      // Branded header
+      // Branded header with date and app info
       const header = document.createElement('div');
       header.style.borderBottom = '2px solid #7c3aed';
       header.style.paddingBottom = '12px';
@@ -264,6 +289,7 @@ export default function AuditPage() {
       header.style.display = 'flex';
       header.style.justifyContent = 'space-between';
       header.style.alignItems = 'center';
+      const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
       header.innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;">
           <div style="background:linear-gradient(135deg,#7c3aed,#3b82f6);width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
@@ -275,8 +301,8 @@ export default function AuditPage() {
           </div>
         </div>
         <div style="text-align:right;font-size:9px;color:#666;">
-          <div><a href="https://www.producthunt.com/posts/gracias-ai" style="color:#f97316;text-decoration:none;font-weight:600;">Product Hunt</a> &nbsp;|&nbsp; <a href="https://github.com/atharvnaik1/GraciasAi-Appstore-Policy-Auditor-Opensource" style="color:#666;text-decoration:none;">GitHub</a></div>
-          <div style="margin-top:2px;">business@gracias.sh</div>
+          <div style="font-weight:600;color:#000;">${currentDate}</div>
+          <div style="margin-top:2px;"><a href="https://opensource.gracias.sh" style="color:#7c3aed;text-decoration:none;">opensource.gracias.sh</a></div>
         </div>
       `;
       wrapper.appendChild(header);
@@ -296,12 +322,14 @@ export default function AuditPage() {
       watermark.textContent = 'Gracias AI';
       wrapper.appendChild(watermark);
 
-      // Clone report content
+      // Clone report content with proper styling
       const clone = completeReportRef.current.cloneNode(true) as HTMLElement;
       clone.style.maxHeight = 'none';
       clone.style.overflow = 'visible';
       clone.style.position = 'relative';
       clone.style.zIndex = '1';
+      
+      // Apply consistent styling for PDF output
       clone.querySelectorAll('*').forEach((el) => {
         const htmlEl = el as HTMLElement;
         htmlEl.style.color = '#1a1a1a';
@@ -311,25 +339,167 @@ export default function AuditPage() {
         htmlEl.style.webkitTextFillColor = 'unset';
         htmlEl.style.borderColor = '#e5e5e5';
       });
-      clone.querySelectorAll('h1, h2, h3').forEach((el) => { (el as HTMLElement).style.color = '#000000'; });
-      clone.querySelectorAll('th').forEach((el) => { const h = el as HTMLElement; h.style.backgroundColor = '#f5f5f5'; h.style.color = '#000000'; });
-      clone.querySelectorAll('code').forEach((el) => { const h = el as HTMLElement; h.style.backgroundColor = '#f0f0f0'; h.style.color = '#d63384'; });
+      
+      // Style headings
+      clone.querySelectorAll('h1').forEach((el) => {
+        const h = el as HTMLElement;
+        h.style.color = '#000000';
+        h.style.fontSize = '24px';
+        h.style.fontWeight = 'bold';
+        h.style.marginTop = '20px';
+        h.style.marginBottom = '10px';
+        h.style.borderBottom = '1px solid #e5e5e5';
+        h.style.paddingBottom = '8px';
+      });
+      clone.querySelectorAll('h2').forEach((el) => {
+        const h = el as HTMLElement;
+        h.style.color = '#1a1a1a';
+        h.style.fontSize = '18px';
+        h.style.fontWeight = 'bold';
+        h.style.marginTop = '16px';
+        h.style.marginBottom = '8px';
+      });
+      clone.querySelectorAll('h3').forEach((el) => {
+        const h = el as HTMLElement;
+        h.style.color = '#333333';
+        h.style.fontSize = '14px';
+        h.style.fontWeight = 'bold';
+        h.style.marginTop = '12px';
+        h.style.marginBottom = '6px';
+      });
+      
+      // Style tables
+      clone.querySelectorAll('table').forEach((el) => {
+        const t = el as HTMLElement;
+        t.style.width = '100%';
+        t.style.borderCollapse = 'collapse';
+        t.style.marginBottom = '12px';
+      });
+      clone.querySelectorAll('th').forEach((el) => {
+        const h = el as HTMLElement;
+        h.style.backgroundColor = '#f5f5f5';
+        h.style.color = '#000000';
+        h.style.padding = '8px';
+        h.style.textAlign = 'left';
+        h.style.borderBottom = '2px solid #7c3aed';
+        h.style.fontWeight = 'bold';
+      });
+      clone.querySelectorAll('td').forEach((el) => {
+        const td = el as HTMLElement;
+        td.style.padding = '6px 8px';
+        td.style.borderBottom = '1px solid #e5e5e5';
+      });
+      
+      // Style code blocks
+      clone.querySelectorAll('code').forEach((el) => {
+        const h = el as HTMLElement;
+        h.style.backgroundColor = '#f0f0f0';
+        h.style.color = '#d63384';
+        h.style.padding = '2px 4px';
+        h.style.borderRadius = '4px';
+        h.style.fontSize = '12px';
+      });
+      clone.querySelectorAll('pre').forEach((el) => {
+        const h = el as HTMLElement;
+        h.style.backgroundColor = '#f8f8f8';
+        h.style.border = '1px solid #e5e5e5';
+        h.style.padding = '12px';
+        h.style.borderRadius = '8px';
+        h.style.overflow = 'hidden';
+      });
+      
+      // Style blockquotes (status blocks)
+      clone.querySelectorAll('blockquote').forEach((el) => {
+        const h = el as HTMLElement;
+        h.style.borderLeft = '4px solid #7c3aed';
+        h.style.paddingLeft = '16px';
+        h.style.marginLeft = '0';
+        h.style.backgroundColor = '#faf5ff';
+        h.style.padding = '12px 16px';
+        h.style.borderRadius = '0 8px 8px 0';
+      });
+      
+      // Style links
+      clone.querySelectorAll('a').forEach((el) => {
+        const a = el as HTMLElement;
+        a.style.color = '#7c3aed';
+        a.style.textDecoration = 'underline';
+      });
+      
+      // Style lists
+      clone.querySelectorAll('ul, ol').forEach((el) => {
+        const l = el as HTMLElement;
+        l.style.marginLeft = '20px';
+        l.style.marginBottom = '8px';
+      });
+      clone.querySelectorAll('li').forEach((el) => {
+        const li = el as HTMLElement;
+        li.style.marginBottom = '4px';
+      });
+      
+      // Style paragraphs
+      clone.querySelectorAll('p').forEach((el) => {
+        const p = el as HTMLElement;
+        p.style.marginBottom = '8px';
+        p.style.lineHeight = '1.6';
+      });
+      
       wrapper.appendChild(clone);
 
+      // Footer
+      const footer = document.createElement('div');
+      footer.style.marginTop = '24px';
+      footer.style.paddingTop = '12px';
+      footer.style.borderTop = '1px solid #e5e5e5';
+      footer.style.fontSize = '10px';
+      footer.style.color = '#666';
+      footer.style.textAlign = 'center';
+      footer.innerHTML = `
+        <p style="margin:0;">Generated by <a href="https://opensource.gracias.sh" style="color:#7c3aed;text-decoration:none;font-weight:600;">Gracias AI</a> — Open Source App Store Compliance Auditor</p>
+        <p style="margin:4px 0 0 0;">Questions? Contact us at business@gracias.sh</p>
+      `;
+      wrapper.appendChild(footer);
+
+      // Position wrapper off-screen
       wrapper.style.position = 'absolute';
       wrapper.style.left = '-9999px';
+      wrapper.style.top = '0';
       document.body.appendChild(wrapper);
-      await html2pdf().from(wrapper).set({
-        margin: 10,
-        filename: `gracias-ai-audit-report-${new Date().toISOString().slice(0, 10)}.pdf`,
-        image: { type: 'jpeg' as 'jpeg' | 'png' | 'webp', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0 },
-        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as 'portrait' | 'landscape' },
-      } as any).save();
-      document.body.removeChild(wrapper);
-    } catch (err) {
+
+      // Generate PDF
+      try {
+        await html2pdf()
+          .set({
+            margin: [10, 10, 10, 10],
+            filename: `gracias-ai-audit-report-${new Date().toISOString().slice(0, 10)}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { 
+              scale: 2, 
+              useCORS: true, 
+              logging: false, 
+              scrollY: 0,
+              windowWidth: 850
+            },
+            jsPDF: { 
+              unit: 'mm', 
+              format: 'a4', 
+              orientation: 'portrait'
+            },
+            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+          })
+          .from(wrapper)
+          .save();
+      } finally {
+        // Always clean up the wrapper
+        if (wrapper.parentNode) {
+          document.body.removeChild(wrapper);
+        }
+      }
+    } catch (err: any) {
       console.error('PDF export failed:', err);
-      setErrorMessage('Failed to export PDF report');
+      setPdfExportError(err.message || 'Failed to export PDF report. Please try again.');
+    } finally {
+      setIsExportingPdf(false);
     }
   };
 
@@ -1052,10 +1222,28 @@ export default function AuditPage() {
                   </button>
                   <button
                     onClick={handleExportPdf}
-                    className="flex-1 sm:flex-none px-4 py-2.5 bg-blue-600 text-white hover:bg-blue-700 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+                    disabled={isExportingPdf}
+                    className={`flex-1 sm:flex-none px-4 py-2.5 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+                      isExportingPdf 
+                        ? 'bg-blue-400 text-white cursor-not-allowed' 
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
                   >
-                    <FileText className="w-3.5 h-3.5" /> PDF
+                    {isExportingPdf ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="w-3.5 h-3.5" /> PDF
+                      </>
+                    )}
                   </button>
+                  {pdfExportError && (
+                    <div className="w-full sm:w-auto mt-2 sm:mt-0 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400">
+                      {pdfExportError}
+                    </div>
+                  )}
                   <button
                     onClick={() => { setPhase('idle'); setReportContent(''); setFile(null); }}
                     className="flex-1 sm:flex-none px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
