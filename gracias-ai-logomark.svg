@@ -1,0 +1,63 @@
+<!-- Logo Mark Only (Icon) for Gracias AI -->
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+    </linearGradient>
+    
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Shield -->
+  <path d="M 128 28 
+           L 208 60 
+           Q 216 100 200 160 
+           Q 180 210 128 228 
+           Q 76 210 56 160 
+           Q 40 100 48 60 
+           L 128 28 Z" 
+        fill="url(#brandGradient)" 
+        stroke="url(#brandGradient)" 
+        stroke-width="4"
+        filter="url(#glow)"/>
+  
+  <!-- Apple + AI Chip -->
+  <g transform="translate(88, 80)">
+    <path d="M 24 0 
+             Q 40 -4 44 8 
+             Q 60 4 64 20 
+             Q 70 50 50 80 
+             Q 30 100 24 100 
+             Q 18 100 0 80 
+             Q -20 50 -14 20 
+             Q -10 4 4 8 
+             Q 8 -4 24 0 Z" 
+          fill="white" 
+          opacity="0.95"/>
+    
+    <path d="M 24 0 
+             Q 32 -2 34 -10 
+             Q 36 -18 30 -22 
+             Q 24 -18 24 0 Z" 
+          fill="white" 
+          opacity="0.95"/>
+    
+    <!-- AI Chip -->
+    <rect x="12" y="30" width="24" height="24" rx="2" stroke="#a855f7" stroke-width="1.5" fill="none" opacity="0.6"/>
+    <line x1="24" y1="30" x2="24" y2="20" stroke="#a855f7" stroke-width="1.5" opacity="0.6"/>
+    <line x1="24" y1="54" x2="24" y2="64" stroke="#a855f7" stroke-width="1.5" opacity="0.6"/>
+    <line x1="12" y1="42" x2="2" y2="42" stroke="#a855f7" stroke-width="1.5" opacity="0.6"/>
+    <line x1="36" y1="42" x2="46" y2="42" stroke="#a855f7" stroke-width="1.5" opacity="0.6"/>
+    <circle cx="24" cy="20" r="2" fill="#a855f7" opacity="0.6"/>
+    <circle cx="24" cy="64" r="2" fill="#a855f7" opacity="0.6"/>
+    <circle cx="2" cy="42" r="2" fill="#a855f7" opacity="0.6"/>
+    <circle cx="46" cy="42" r="2" fill="#a855f7" opacity="0.6"/>
+  </g>
+</svg>

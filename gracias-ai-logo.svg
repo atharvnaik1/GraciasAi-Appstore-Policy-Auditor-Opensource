@@ -1,0 +1,88 @@
+<!-- Logo Design for Gracias AI -->
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Purple-Blue Gradient -->
+    <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Glow Effect -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background Circle -->
+  <circle cx="256" cy="256" r="240" fill="url(#brandGradient)" opacity="0.1"/>
+  
+  <!-- Shield Outline -->
+  <path d="M 256 56 
+           L 416 120 
+           Q 432 200 400 320 
+           Q 360 420 256 456 
+           Q 152 420 112 320 
+           Q 80 200 96 120 
+           L 256 56 Z" 
+        fill="url(#brandGradient)" 
+        stroke="url(#brandGradient)" 
+        stroke-width="8"
+        filter="url(#glow)"/>
+  
+  <!-- Apple Silhouette -->
+  <g transform="translate(180, 160)">
+    <!-- Apple Body -->
+    <path d="M 48 0 
+             Q 80 -8 88 16 
+             Q 120 8 128 40 
+             Q 140 100 100 160 
+             Q 60 200 48 200 
+             Q 36 200 0 160 
+             Q -40 100 -28 40 
+             Q -20 8 8 16 
+             Q 16 -8 48 0 Z" 
+          fill="white" 
+          opacity="0.95"/>
+    
+    <!-- Apple Leaf -->
+    <path d="M 48 0 
+             Q 64 -4 68 -20 
+             Q 72 -36 60 -44 
+             Q 48 -36 48 0 Z" 
+          fill="white" 
+          opacity="0.95"/>
+    
+    <!-- AI Chip Pattern -->
+    <g stroke="#a855f7" stroke-width="2" fill="none" opacity="0.6">
+      <!-- Central Chip -->
+      <rect x="28" y="60" width="40" height="40" rx="4"/>
+      
+      <!-- Connection Lines -->
+      <line x1="48" y1="60" x2="48" y2="40"/>
+      <line x1="48" y1="100" x2="48" y2="120"/>
+      <line x1="28" y1="80" x2="8" y2="80"/>
+      <line x1="68" y1="80" x2="88" y2="80"/>
+      
+      <!-- Connection Nodes -->
+      <circle cx="48" cy="40" r="4"/>
+      <circle cx="48" cy="120" r="4"/>
+      <circle cx="8" cy="80" r="4"/>
+      <circle cx="88" cy="80" r="4"/>
+    </g>
+  </g>
+  
+  <!-- AI Neural Network Nodes -->
+  <g fill="white" opacity="0.4">
+    <circle cx="160" cy="320" r="6"/>
+    <circle cx="256" cy="340" r="6"/>
+    <circle cx="352" cy="320" r="6"/>
+    
+    <!-- Connection Lines -->
+    <line x1="160" y1="320" x2="256" y2="340" stroke="white" stroke-width="2" opacity="0.3"/>
+    <line x1="256" y1="340" x2="352" y2="320" stroke="white" stroke-width="2" opacity="0.3"/>
+  </g>
+</svg>
