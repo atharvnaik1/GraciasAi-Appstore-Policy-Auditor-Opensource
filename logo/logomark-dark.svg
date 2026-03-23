@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- For dark backgrounds - white icon -->
+  <!-- Shield shape -->
+  <path d="M256 32 L80 96 L80 240 C80 352 160 432 256 480 C352 432 432 352 432 240 L432 96 Z" fill="#ffffff"/>
+  <!-- AI circuit nodes with gradient -->
+  <defs>
+    <linearGradient id="nodeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a855f7"/>
+      <stop offset="100%" style="stop-color:#3b82f6"/>
+    </linearGradient>
+  </defs>
+  <circle cx="180" cy="180" r="24" fill="url(#nodeGradient)" opacity="0.9"/>
+  <circle cx="256" cy="140" r="20" fill="url(#nodeGradient)" opacity="0.8"/>
+  <circle cx="332" cy="180" r="24" fill="url(#nodeGradient)" opacity="0.9"/>
+  <circle cx="256" cy="260" r="28" fill="url(#nodeGradient)" opacity="0.95"/>
+  <circle cx="180" cy="320" r="22" fill="url(#nodeGradient)" opacity="0.85"/>
+  <circle cx="332" cy="320" r="22" fill="url(#nodeGradient)" opacity="0.85"/>
+  <!-- Circuit connections -->
+  <path d="M180 180 L256 140 M256 140 L332 180 M180 180 L256 260 M332 180 L256 260 M256 260 L180 320 M256 260 L332 320" 
+        stroke="url(#nodeGradient)" stroke-width="6" fill="none" opacity="0.7" stroke-linecap="round"/>
+  <!-- App Store inspired rounded square overlay -->
+  <rect x="200" y="300" width="112" height="112" rx="24" fill="url(#nodeGradient)" opacity="0.2"/>
+</svg>
