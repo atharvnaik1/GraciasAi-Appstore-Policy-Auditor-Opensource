@@ -1,13 +1,15 @@
-# Gracias AI - App Store Compliance Auditor (Open Source)
+# Gracias AI - App Store & Play Store Compliance Auditor (Open Source)
 
-AI-powered iOS App Store compliance auditor. Upload your `.ipa` file and get a comprehensive audit against Apple's Review Guidelines — before you submit.
+AI-powered iOS App Store and Android Play Store compliance auditor. Upload your `.ipa`, `.aab`, or `.apk` file and get a comprehensive audit against Apple's Review Guidelines or Google Play Developer Policies — before you submit.
 
 **Live at: [opensource.gracias.sh](https://opensource.gracias.sh)**
 
 ## Features
 
-- **IPA Analysis** — Upload `.ipa` files (up to 150MB) for automated compliance auditing
-- **Full Guidelines Coverage** — Checks all 6 major App Store Review Guideline categories: Safety, Performance, Business, Design, Legal & Privacy, and Technical
+- **Multi-Platform Support** — Audit both iOS (`.ipa`) and Android (`.aab`, `.apk`) apps
+- **iOS App Store Analysis** — Full compliance check against Apple's Review Guidelines
+- **Android Play Store Analysis** — Comprehensive audit against Google Play Developer Policies
+- **Full Guidelines Coverage** — Checks all major policy categories for both platforms
 - **Multi-Provider AI** — Bring your own key from Anthropic (Claude), OpenAI (GPT), Google Gemini, or OpenRouter
 - **Model Selection** — Choose specific models per provider (Claude Sonnet 4, GPT-4o, Gemini 2.5 Flash, etc.)
 - **Real-Time Streaming** — Watch your audit report generate live as the AI analyzes your code
@@ -62,16 +64,18 @@ npm start
 
 ## How It Works
 
-1. **Upload** — Drop your `.ipa` file. The server streams it to disk via Busboy without buffering in memory.
-2. **Extract** — The IPA is unzipped and all relevant source files are collected (`.swift`, `.m`, `.plist`, `.entitlements`, `.storyboard`, `.xcprivacy`, etc.). Binary files and build artifacts are skipped.
-3. **Analyze** — Source files are sent to your chosen AI provider with a structured audit prompt. The response streams back in real-time.
-4. **Report** — You get a structured compliance report with pass/fail indicators, severity ratings, and a prioritized remediation plan.
+1. **Select Platform** — Choose iOS App Store or Google Play Store audit
+2. **Upload** — Drop your `.ipa` (iOS) or `.aab`/`.apk` (Android) file. The server streams it to disk via Busboy without buffering in memory.
+3. **Extract** — The archive is unzipped and all relevant source files are collected (iOS: `.swift`, `.m`, `.plist`, `.entitlements`, `.storyboard`, etc. | Android: `.kt`, `.java`, `.xml`, `.gradle`, `AndroidManifest.xml`, etc.). Binary files and build artifacts are skipped.
+4. **Analyze** — Source files are sent to your chosen AI provider with a structured audit prompt. The response streams back in real-time.
+5. **Report** — You get a structured compliance report with pass/fail indicators, severity ratings, and a prioritized remediation plan.
 
 ## API Endpoints
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| `POST` | `/api/audit` | Upload IPA, stream AI audit report |
+| `POST` | `/api/audit` | Upload IPA, stream iOS App Store audit report |
+| `POST` | `/api/audit-android` | Upload AAB/APK, stream Google Play Store audit report |
 | `POST` | `/api/save-report` | Save report to MongoDB |
 | `GET` | `/api/visitor` | Increment and return visitor count |
 

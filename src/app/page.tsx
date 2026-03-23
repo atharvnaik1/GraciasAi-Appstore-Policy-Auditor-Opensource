@@ -7,13 +7,14 @@ import {
   ChevronDown, Download, ArrowLeft,
   ShieldCheck, AlertTriangle, CheckCircle, XCircle,
   FileText, Sparkles, Info, Github, ExternalLink, Building2, Star, Mail,
-  Zap, Lock, Code2, Clock, Apple, Cpu
+  Zap, Lock, Code2, Clock, Apple, Cpu, Smartphone
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Link from 'next/link';
 import { UserButton, SignedOut, SignedIn, useAuth, useClerk } from '@clerk/nextjs';
 
 type AuditPhase = 'idle' | 'uploading' | 'analyzing' | 'complete' | 'error';
+type Platform = 'ios' | 'android';
 
 const providerModels: Record<string, { label: string; value: string }[]> = {
   anthropic: [
@@ -53,6 +54,7 @@ const selectStyle = {
 
 export default function AuditPage() {
   const [file, setFile] = useState<File | null>(null);
+  const [platform, setPlatform] = useState<Platform>('ios');
   const [claudeApiKey, setClaudeApiKey] = useState('');
   const [provider, setProvider] = useState('anthropic');
   const [model, setModel] = useState('claude-sonnet-4-20250514');
@@ -109,8 +111,11 @@ export default function AuditPage() {
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile) {
       const ext = droppedFile.name.split('.').pop()?.toLowerCase();
-      if (ext !== 'ipa') {
-        setErrorMessage('Please upload an .ipa file');
+      const validExtensions = platform === 'ios' ? ['ipa'] : ['aab', 'apk'];
+      if (!validExtensions.includes(ext || '')) {
+        setErrorMessage(platform === 'ios' 
+          ? 'Please upload an .ipa file for iOS' 
+          : 'Please upload .aab or .apk file for Android');
       } else if (droppedFile.size > 150 * 1024 * 1024) {
         setErrorMessage('File exceeds maximum size of 150MB');
       } else {
@@ -118,14 +123,17 @@ export default function AuditPage() {
         setErrorMessage('');
       }
     }
-  }, []);
+  }, [platform]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (selected) {
       const ext = selected.name.split('.').pop()?.toLowerCase();
-      if (ext !== 'ipa') {
-        setErrorMessage('Please upload an .ipa file');
+      const validExtensions = platform === 'ios' ? ['ipa'] : ['aab', 'apk'];
+      if (!validExtensions.includes(ext || '')) {
+        setErrorMessage(platform === 'ios' 
+          ? 'Please upload an .ipa file for iOS' 
+          : 'Please upload .aab or .apk file for Android');
         e.target.value = '';
         return;
       }
@@ -171,7 +179,8 @@ export default function AuditPage() {
 
     try {
       setPhase('analyzing');
-      const response = await fetch('/api/audit', { method: 'POST', body: formData });
+      const apiEndpoint = platform === 'ios' ? '/api/audit' : '/api/audit-android';
+      const response = await fetch(apiEndpoint, { method: 'POST', body: formData });
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.error || 'Audit request failed');
@@ -479,7 +488,7 @@ export default function AuditPage() {
                   className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-xs font-semibold text-primary mb-6"
                 >
                   <Zap className="w-3.5 h-3.5" />
-                  AI-Powered Compliance Auditing for iOS
+                  AI-Powered Compliance Auditing for iOS & Android
                 </motion.div>
 
                 <motion.h1
@@ -488,10 +497,13 @@ export default function AuditPage() {
                   transition={{ delay: 0.2 }}
                   className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight mb-6 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]"
                 >
-                  <span className="text-white">Audit Your iOS App</span>
+                  <span className="text-white">Audit Your </span>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#a78bfa] via-[#818cf8] to-[#60a5fa] [-webkit-text-stroke:0.5px_rgba(255,255,255,0.1)]">{platform === 'ios' ? 'iOS' : 'Android'}</span>
+                  <span className="text-white"> App</span>
                   <br />
                   <span className="text-white">Before </span>
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#a78bfa] via-[#818cf8] to-[#60a5fa] [-webkit-text-stroke:0.5px_rgba(255,255,255,0.1)]">Apple Does</span>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#a78bfa] via-[#818cf8] to-[#60a5fa] [-webkit-text-stroke:0.5px_rgba(255,255,255,0.1)]">{platform === 'ios' ? 'Apple' : 'Google'}</span>
+                  <span className="text-white"> Does</span>
                 </motion.h1>
 
                 <motion.p
@@ -500,7 +512,7 @@ export default function AuditPage() {
                   transition={{ delay: 0.3 }}
                   className="text-muted-foreground text-base md:text-xl max-w-2xl mx-auto leading-relaxed mb-4"
                 >
-                  Upload your iOS project and get a comprehensive audit against Apple&apos;s Review Guidelines.
+                  Upload your {platform === 'ios' ? 'iOS' : 'Android'} project and get a comprehensive audit against {platform === 'ios' ? 'Apple\'s Review Guidelines' : 'Google Play Developer Policies'}.
                   Catch rejection risks before you submit.
                 </motion.p>
 
@@ -540,6 +552,37 @@ export default function AuditPage() {
                 transition={{ delay: 0.4 }}
                 className="max-w-4xl mx-auto"
               >
+                {/* Platform Selector */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.45 }}
+                  className="flex items-center justify-center gap-2 mb-6"
+                >
+                  <button
+                    onClick={() => { setPlatform('ios'); setFile(null); setErrorMessage(''); }}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                      platform === 'ios' 
+                        ? 'bg-gradient-to-r from-primary to-blue-600 text-white shadow-lg shadow-primary/25' 
+                        : 'bg-white/5 border border-white/10 text-muted-foreground hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <Apple className="w-4 h-4" />
+                    iOS App Store
+                  </button>
+                  <button
+                    onClick={() => { setPlatform('android'); setFile(null); setErrorMessage(''); }}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                      platform === 'android' 
+                        ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg shadow-green-500/25' 
+                        : 'bg-white/5 border border-white/10 text-muted-foreground hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    Play Store
+                  </button>
+                </motion.div>
+
                 <div className="glassmorphism rounded-3xl p-6 md:p-8 border border-white/10 shadow-2xl shadow-primary/5">
                   <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                     {/* Upload Area — spans 3 cols */}
@@ -560,7 +603,7 @@ export default function AuditPage() {
                         <input
                           ref={fileInputRef}
                           type="file"
-                          accept=".ipa"
+                          accept={platform === 'ios' ? '.ipa' : '.aab,.apk'}
                           onChange={handleFileSelect}
                           className="hidden"
                         />
@@ -591,13 +634,19 @@ export default function AuditPage() {
                                 <Upload className="w-7 h-7 text-muted-foreground group-hover:text-primary transition-colors" />
                               </div>
                               <p className="text-white font-semibold text-sm md:text-base mb-1">
-                                Drop your .ipa file here
+                                {platform === 'ios' ? 'Drop your .ipa file here' : 'Drop your .aab or .apk file here'}
                               </p>
                               <p className="text-muted-foreground text-xs mb-3">
-                                <span className="text-primary">.ipa</span> files up to 150MB
+                                {platform === 'ios' 
+                                  ? <><span className="text-primary">.ipa</span> files up to 150MB</>
+                                  : <><span className="text-green-400">.aab</span> or <span className="text-green-400">.apk</span> files up to 150MB</>
+                                }
                               </p>
                               <span className="text-[10px] text-muted-foreground/60 font-medium">
-                                .swift, .m, .plist, .entitlements, .storyboard &amp; more
+                                {platform === 'ios' 
+                                  ? '.swift, .m, .plist, .entitlements, .storyboard & more'
+                                  : '.kt, .java, .xml, .gradle, AndroidManifest & more'
+                                }
                               </span>
                             </div>
                           )}
@@ -707,12 +756,14 @@ export default function AuditPage() {
                       disabled={!isReady}
                       className={`relative w-full py-3.5 md:py-4 rounded-2xl font-bold text-sm md:text-base flex items-center justify-center gap-2.5 transition-all duration-300 overflow-hidden ${
                         isReady
-                          ? 'bg-gradient-to-r from-primary to-blue-600 text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.01] active:scale-[0.99]'
+                          ? platform === 'ios' 
+                            ? 'bg-gradient-to-r from-primary to-blue-600 text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.01] active:scale-[0.99]'
+                            : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-[1.01] active:scale-[0.99]'
                           : 'bg-white/5 text-muted-foreground/50 cursor-not-allowed border border-white/5'
                       }`}
                     >
                       <ShieldCheck className="w-5 h-5" />
-                      Run Compliance Audit
+                      Run {platform === 'ios' ? 'App Store' : 'Play Store'} Compliance Audit
                     </button>
                   </div>
                 </div>
@@ -731,7 +782,7 @@ export default function AuditPage() {
                       icon: <ShieldCheck className="w-5 h-5 text-primary" />,
                       iconBg: 'bg-primary/10 border-primary/20',
                       title: 'Full Guidelines Coverage',
-                      desc: 'Checks all 6 major App Store Review Guideline categories: Safety, Performance, Business, Design, Legal & Privacy, and Technical.',
+                      desc: 'Checks all major App Store & Play Store policy categories: Safety, Permissions, Privacy, Advertising, Restricted Content, and more.',
                     },
                     {
                       icon: <Zap className="w-5 h-5 text-amber-400" />,
@@ -752,10 +803,10 @@ export default function AuditPage() {
                       desc: 'Every line of code is public on GitHub. Inspect exactly how your data is handled, or contribute improvements.',
                     },
                     {
-                      icon: <Cpu className="w-5 h-5 text-purple-400" />,
-                      iconBg: 'bg-purple-500/10 border-purple-500/20',
-                      title: 'Multi-Provider BYOK',
-                      desc: 'Bring your own key from Anthropic, OpenAI, Google Gemini, or OpenRouter. Choose the model that works best for you.',
+                      icon: <Smartphone className="w-5 h-5 text-emerald-400" />,
+                      iconBg: 'bg-emerald-500/10 border-emerald-500/20',
+                      title: 'iOS & Android Support',
+                      desc: 'Audit both iOS (.ipa) and Android (.aab, .apk) apps against Apple App Store and Google Play Store policies.',
                     },
                     {
                       icon: <FileText className="w-5 h-5 text-cyan-400" />,
@@ -933,7 +984,7 @@ export default function AuditPage() {
 
                   <AnimatePresence mode="wait">
                     <motion.p
-                      key={phase + filesScanned}
+                      key={phase + filesScanned + platform}
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -5 }}
@@ -942,7 +993,7 @@ export default function AuditPage() {
                       {phase === 'uploading'
                         ? 'Decompressing and parsing source files...'
                         : filesScanned > 0
-                          ? `Auditing ${filesScanned} source files against App Store guidelines...`
+                          ? `Auditing ${filesScanned} source files against ${platform === 'ios' ? 'App Store' : 'Play Store'} guidelines...`
                           : 'Establishing context window...'}
                     </motion.p>
                   </AnimatePresence>
