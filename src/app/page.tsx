@@ -6,7 +6,7 @@ import {
   Upload, FileArchive, Key, Loader2,
   ChevronDown, Download, ArrowLeft,
   ShieldCheck, AlertTriangle, CheckCircle, XCircle,
-  FileText, Sparkles, Info, Github, ExternalLink, Building2, Eye,
+  FileText, Sparkles, Info, Github, ExternalLink, Building2, Star, Mail,
   Zap, Lock, Code2, Clock, Apple, Cpu
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -62,6 +62,7 @@ export default function AuditPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [filesScanned, setFilesScanned] = useState(0);
   const [visitorCount, setVisitorCount] = useState<number | null>(null);
+  const [starCount, setStarCount] = useState<number | null>(null);
   const [fileNames, setFileNames] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
@@ -76,8 +77,12 @@ export default function AuditPage() {
     if (saved) setClaudeApiKey(saved);
     fetch('/api/visitor')
       .then(res => res.json())
-      .then(data => { if (data.count) setVisitorCount(data.count); })
-      .catch(console.error);
+      .then(data => { setVisitorCount(data.count || 0); })
+      .catch(() => { setVisitorCount(0); });
+    fetch('/api/github-stars')
+      .then(res => res.json())
+      .then(data => { setStarCount(data.stars ?? 0); })
+      .catch(() => { setStarCount(0); });
   }, []);
 
   useEffect(() => {
@@ -142,7 +147,7 @@ export default function AuditPage() {
   };
 
   const { isSignedIn } = useAuth();
-  const { openSignIn } = useClerk();
+  const { openSignIn, openSignUp } = useClerk();
 
   const handleRunAudit = async () => {
     if (!file || !claudeApiKey.trim()) return;
@@ -241,12 +246,62 @@ export default function AuditPage() {
     if (!reportContent || !completeReportRef.current) return;
     try {
       const html2pdf = (await import('html2pdf.js')).default;
+
+      // Build a wrapper with branded header + watermark + report content
+      const wrapper = document.createElement('div');
+      wrapper.style.position = 'relative';
+      wrapper.style.backgroundColor = '#ffffff';
+      wrapper.style.padding = '24px';
+      wrapper.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      wrapper.style.color = '#1a1a1a';
+      wrapper.style.width = '800px';
+
+      // Branded header
+      const header = document.createElement('div');
+      header.style.borderBottom = '2px solid #7c3aed';
+      header.style.paddingBottom = '12px';
+      header.style.marginBottom = '20px';
+      header.style.display = 'flex';
+      header.style.justifyContent = 'space-between';
+      header.style.alignItems = 'center';
+      header.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="background:linear-gradient(135deg,#7c3aed,#3b82f6);width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+            <span style="color:#fff;font-size:14px;font-weight:900;">G</span>
+          </div>
+          <div>
+            <div style="font-size:16px;font-weight:800;color:#000;">Gracias AI</div>
+            <div style="font-size:9px;color:#666;letter-spacing:1px;text-transform:uppercase;">App Store Compliance Auditor</div>
+          </div>
+        </div>
+        <div style="text-align:right;font-size:9px;color:#666;">
+          <div><a href="https://www.producthunt.com/posts/gracias-ai" style="color:#f97316;text-decoration:none;font-weight:600;">Product Hunt</a> &nbsp;|&nbsp; <a href="https://github.com/atharvnaik1/GraciasAi-Appstore-Policy-Auditor-Opensource" style="color:#666;text-decoration:none;">GitHub</a></div>
+          <div style="margin-top:2px;">business@gracias.sh</div>
+        </div>
+      `;
+      wrapper.appendChild(header);
+
+      // Watermark
+      const watermark = document.createElement('div');
+      watermark.style.position = 'fixed';
+      watermark.style.top = '50%';
+      watermark.style.left = '50%';
+      watermark.style.transform = 'translate(-50%, -50%) rotate(-35deg)';
+      watermark.style.fontSize = '80px';
+      watermark.style.fontWeight = '900';
+      watermark.style.color = 'rgba(124, 58, 237, 0.04)';
+      watermark.style.pointerEvents = 'none';
+      watermark.style.zIndex = '0';
+      watermark.style.whiteSpace = 'nowrap';
+      watermark.textContent = 'Gracias AI';
+      wrapper.appendChild(watermark);
+
+      // Clone report content
       const clone = completeReportRef.current.cloneNode(true) as HTMLElement;
       clone.style.maxHeight = 'none';
       clone.style.overflow = 'visible';
-      clone.style.color = '#1a1a1a';
-      clone.style.backgroundColor = '#ffffff';
-      clone.style.padding = '20px';
+      clone.style.position = 'relative';
+      clone.style.zIndex = '1';
       clone.querySelectorAll('*').forEach((el) => {
         const htmlEl = el as HTMLElement;
         htmlEl.style.color = '#1a1a1a';
@@ -259,18 +314,19 @@ export default function AuditPage() {
       clone.querySelectorAll('h1, h2, h3').forEach((el) => { (el as HTMLElement).style.color = '#000000'; });
       clone.querySelectorAll('th').forEach((el) => { const h = el as HTMLElement; h.style.backgroundColor = '#f5f5f5'; h.style.color = '#000000'; });
       clone.querySelectorAll('code').forEach((el) => { const h = el as HTMLElement; h.style.backgroundColor = '#f0f0f0'; h.style.color = '#d63384'; });
-      clone.style.position = 'absolute';
-      clone.style.left = '-9999px';
-      clone.style.width = '800px';
-      document.body.appendChild(clone);
-      await html2pdf().from(clone).set({
+      wrapper.appendChild(clone);
+
+      wrapper.style.position = 'absolute';
+      wrapper.style.left = '-9999px';
+      document.body.appendChild(wrapper);
+      await html2pdf().from(wrapper).set({
         margin: 10,
-        filename: `appstore-audit-report-${new Date().toISOString().slice(0, 10)}.pdf`,
+        filename: `gracias-ai-audit-report-${new Date().toISOString().slice(0, 10)}.pdf`,
         image: { type: 'jpeg' as 'jpeg' | 'png' | 'webp', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0 },
         jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as 'portrait' | 'landscape' },
       } as any).save();
-      document.body.removeChild(clone);
+      document.body.removeChild(wrapper);
     } catch (err) {
       console.error('PDF export failed:', err);
       setErrorMessage('Failed to export PDF report');
@@ -281,6 +337,47 @@ export default function AuditPage() {
 
   return (
     <main className="min-h-[100dvh] w-full bg-background text-foreground selection:bg-primary/30 relative overflow-hidden font-sans">
+      {/* Full-Screen Auth Gate */}
+      <SignedOut>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-3xl">
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff03_1px,transparent_1px),linear-gradient(to_bottom,#ffffff03_1px,transparent_1px)] bg-[size:40px_40px]" />
+            <motion.div animate={{ scale: [1, 1.3, 1], opacity: [0.08, 0.18, 0.08] }} transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }} className="absolute top-[-20%] left-[-10%] w-[700px] h-[700px] bg-primary/25 rounded-full blur-[200px]" />
+            <motion.div animate={{ scale: [1, 1.4, 1], opacity: [0.06, 0.14, 0.06] }} transition={{ duration: 14, repeat: Infinity, ease: "easeInOut", delay: 3 }} className="absolute bottom-[-20%] right-[-10%] w-[800px] h-[800px] bg-blue-600/20 rounded-full blur-[200px]" />
+            <motion.div animate={{ scale: [1, 1.2, 1], opacity: [0.04, 0.1, 0.04] }} transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 5 }} className="absolute top-[30%] left-[40%] w-[500px] h-[500px] bg-violet-500/15 rounded-full blur-[180px]" />
+            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] via-transparent to-white/[0.01]" />
+          </div>
+          <div className="relative z-10 flex flex-col items-center w-full max-w-md px-4">
+            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="flex flex-col items-center mb-10">
+              <div className="bg-gradient-to-br from-primary to-blue-500 w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg shadow-primary/30 ring-1 ring-white/10 mb-5">
+                <Apple className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="text-3xl md:text-4xl font-black text-white mb-3">Gracias AI</h1>
+              <p className="text-white/60 text-sm md:text-base text-center leading-relaxed max-w-xs">AI-Powered App Store Compliance Auditor</p>
+            </motion.div>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.15 }} className="w-full rounded-3xl bg-white/[0.04] border border-white/[0.08] shadow-2xl shadow-black/40 backdrop-blur-2xl p-8 md:p-10">
+              <h2 className="text-white text-lg font-bold text-center mb-2">Welcome back</h2>
+              <p className="text-white/50 text-sm text-center mb-8">Sign in to start auditing your apps</p>
+              <button onClick={() => openSignIn()} className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-primary to-blue-600 text-white font-bold text-sm shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                <Lock className="w-4 h-4" /> Sign In
+              </button>
+              <div className="flex items-center gap-3 my-6">
+                <div className="flex-1 h-px bg-white/[0.08]" />
+                <span className="text-white/30 text-xs font-medium">OR</span>
+                <div className="flex-1 h-px bg-white/[0.08]" />
+              </div>
+              <button onClick={() => openSignUp()} className="w-full py-3.5 rounded-2xl bg-white/[0.06] border border-white/[0.1] text-white font-bold text-sm hover:bg-white/[0.1] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                <Sparkles className="w-4 h-4 text-blue-400" /> Create Account
+              </button>
+            </motion.div>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }} className="mt-8 flex items-center justify-center gap-5 text-xs">
+              <span className="flex items-center gap-1.5 text-white/40"><Lock className="w-3 h-3 text-green-400/70" /> Zero data storage</span>
+              <span className="flex items-center gap-1.5 text-white/40"><Code2 className="w-3 h-3 text-blue-400/70" /> Open source</span>
+            </motion.div>
+          </div>
+        </div>
+      </SignedOut>
+
       {/* Animated Background */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:32px_32px]" />
@@ -333,19 +430,19 @@ export default function AuditPage() {
           </nav>
 
           <div className="flex items-center gap-2 md:gap-3">
-            {visitorCount !== null && (
-              <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-medium text-muted-foreground">
-                <Eye className="w-3 h-3 text-blue-400" />
-                {visitorCount.toLocaleString()}
-              </div>
-            )}
             <Link
-              href="https://github.com/atharvnaik1/Gracias-Ai---Appstore-Playstore-Policy-Auditor-Opensource-"
+              href="https://github.com/atharvnaik1/GraciasAi-Appstore-Policy-Auditor-Opensource"
               target="_blank"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-white transition-all"
             >
               <Github className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">GitHub</span>
+              {starCount !== null && starCount > 0 && (
+                <>
+                  <Star className="w-3 h-3 text-yellow-400" />
+                  <span className="text-yellow-400">{starCount.toLocaleString()}</span>
+                </>
+              )}
             </Link>
             <SignedOut>
               <button
@@ -417,6 +514,22 @@ export default function AuditPage() {
                   <span className="flex items-center gap-1.5"><Lock className="w-3 h-3 text-green-400" /> Zero data storage</span>
                   <span className="flex items-center gap-1.5"><Code2 className="w-3 h-3 text-blue-400" /> Open source</span>
                   <span className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-amber-400" /> Results in ~60s</span>
+                </motion.div>
+
+                {/* AI Provider Logos */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6 }}
+                  className="mt-8 flex flex-col items-center gap-3"
+                >
+                  <span className="text-[11px] uppercase tracking-widest text-muted-foreground/60 font-medium">Powered by</span>
+                  <div className="flex items-center justify-center gap-6 md:gap-8">
+                    <img src="/logos/gemini.svg" alt="Gemini" className="h-7 w-7 opacity-60 hover:opacity-100 transition-opacity" draggable={false} />
+                    <img src="/logos/openai.svg" alt="OpenAI" className="h-7 w-7 opacity-60 hover:opacity-100 transition-opacity" draggable={false} />
+                    <img src="/logos/anthropic.svg" alt="Anthropic" className="h-7 w-7 opacity-60 hover:opacity-100 transition-opacity" draggable={false} />
+                    <img src="/logos/openrouter.svg" alt="OpenRouter" className="h-7 w-7 opacity-60 hover:opacity-100 transition-opacity" draggable={false} />
+                  </div>
                 </motion.div>
               </div>
 
@@ -771,12 +884,15 @@ export default function AuditPage() {
                       Gracias AI
                     </Link>
                     <span className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()}</span>
+                    {visitorCount !== null && (
+                      <span className="text-xs text-muted-foreground">{visitorCount.toLocaleString()} visitors</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <a href="https://gracias.sh/privacy" className="hover:text-white transition-colors">Privacy</a>
                     <a href="https://gracias.sh/about" className="hover:text-white transition-colors">About</a>
                     <a href="mailto:hello@gracias.sh" className="hover:text-white transition-colors">Contact</a>
-                    <a href="https://github.com/atharvnaik1/Gracias-Ai---Appstore-Playstore-Policy-Auditor-Opensource-" className="flex items-center gap-1 hover:text-white transition-colors">
+                    <a href="https://github.com/atharvnaik1/GraciasAi-Appstore-Policy-Auditor-Opensource" className="flex items-center gap-1 hover:text-white transition-colors">
                       Source <ExternalLink className="w-3 h-3" />
                     </a>
                   </div>
@@ -951,33 +1067,34 @@ export default function AuditPage() {
 
               {/* Report */}
               <div className="rounded-2xl overflow-hidden border border-white/10 bg-black/30">
-                <div className="px-5 md:px-8 py-4 border-b border-white/10 bg-black/50 flex items-center justify-between sticky top-0 z-20 backdrop-blur-xl">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-bold text-white">Compliance Report</span>
+                <div className="px-5 md:px-8 py-3 border-b border-white/10 bg-black/50 sticky top-0 z-20 backdrop-blur-xl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="bg-gradient-to-br from-primary to-blue-500 w-6 h-6 rounded-lg flex items-center justify-center">
+                        <Apple className="w-3 h-3 text-white" />
+                      </div>
+                      <span className="text-sm font-bold text-white">Gracias AI</span>
+                      <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">Compliance Report</span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground font-medium">
+                      {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </span>
                   </div>
-                  <span className="text-[10px] text-muted-foreground font-medium">
-                    {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                  </span>
+                  <div className="flex items-center gap-3 mt-2 pt-2 border-t border-white/5">
+                    <a href="https://www.producthunt.com/posts/gracias-ai" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-orange-400/80 hover:text-orange-400 font-medium transition-colors">
+                      <Zap className="w-3 h-3" /> Product Hunt
+                    </a>
+                    <a href="mailto:business@gracias.sh" className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-white font-medium transition-colors">
+                      <Mail className="w-3 h-3" /> business@gracias.sh
+                    </a>
+                    <a href="https://github.com/atharvnaik1/GraciasAi-Appstore-Policy-Auditor-Opensource" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-white font-medium transition-colors">
+                      <Github className="w-3 h-3" /> Source
+                    </a>
+                  </div>
                 </div>
 
                 <div className="p-5 md:p-10 overflow-y-auto max-h-[75vh] custom-scrollbar">
-                  <div ref={completeReportRef} className={`prose prose-invert max-w-none text-sm md:text-base leading-relaxed
-                    prose-headings:text-foreground prose-h1:text-2xl md:prose-h1:text-3xl prose-h1:font-black prose-h1:tracking-tight prose-h1:border-b prose-h1:border-white/10 prose-h1:pb-4 prose-h1:mb-6
-                    prose-h2:text-xl md:prose-h2:text-2xl prose-h2:font-bold prose-h2:mt-10 prose-h2:mb-4 prose-h2:text-white/90
-                    prose-h3:text-base md:prose-h3:text-lg prose-h3:font-semibold prose-h3:text-primary-foreground
-                    prose-p:text-muted-foreground prose-p:leading-relaxed
-                    prose-li:text-muted-foreground prose-li:my-1
-                    prose-strong:text-white prose-strong:font-bold
-                    prose-a:text-primary hover:prose-a:text-primary/80 prose-a:transition-colors
-                    prose-code:text-primary prose-code:bg-primary/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-xs prose-code:border prose-code:border-primary/20
-                    prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10 prose-pre:rounded-xl prose-pre:p-4
-                    prose-blockquote:border-l-primary prose-blockquote:bg-primary/5 prose-blockquote:rounded-r-xl prose-blockquote:py-1.5 prose-blockquote:px-4 prose-blockquote:my-6 prose-blockquote:italic
-                    prose-table:border-collapse prose-table:w-full prose-table:overflow-hidden prose-table:block md:prose-table:table prose-table:overflow-x-auto
-                    prose-th:bg-white/5 prose-th:text-white prose-th:text-[10px] md:prose-th:text-xs prose-th:uppercase prose-th:tracking-wider prose-th:px-4 prose-th:py-3 prose-th:border-b prose-th:border-white/10 prose-th:text-left
-                    prose-td:px-4 prose-td:py-3 prose-td:border-b prose-td:border-white/5 prose-td:text-xs md:prose-td:text-sm prose-td:text-muted-foreground
-                    [&>table]:border [&>table]:border-white/10
-                  `}>
+                  <div ref={completeReportRef} className="prose prose-invert max-w-none text-sm md:text-base leading-relaxed prose-headings:text-foreground prose-p:text-muted-foreground prose-p:leading-relaxed prose-li:text-muted-foreground prose-li:my-1 prose-strong:text-white prose-strong:font-bold prose-a:text-primary prose-a:transition-colors prose-code:text-primary prose-code:bg-primary/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-xs prose-code:border prose-code:border-primary/20 prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10 prose-pre:rounded-xl prose-pre:p-4">
                     <ReactMarkdown>{reportContent}</ReactMarkdown>
                   </div>
                 </div>
@@ -987,12 +1104,6 @@ export default function AuditPage() {
         </AnimatePresence>
       </div>
 
-      <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.08); border-radius: 20px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: rgba(168,85,247,0.3); }
-      `}</style>
     </main>
   );
 }
