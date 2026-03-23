@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Link from 'next/link';
-// import { UserButton, SignInButton, SignedOut, SignedIn, useAuth, useClerk } from '@clerk/nextjs';
+import { UserButton, SignedOut, SignedIn, useAuth, useClerk } from '@clerk/nextjs';
 
 type AuditPhase = 'idle' | 'uploading' | 'analyzing' | 'complete' | 'error';
 
@@ -141,8 +141,16 @@ export default function AuditPage() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
+  const { isSignedIn } = useAuth();
+  const { openSignIn } = useClerk();
+
   const handleRunAudit = async () => {
     if (!file || !claudeApiKey.trim()) return;
+
+    if (!isSignedIn) {
+      openSignIn();
+      return;
+    }
     setPhase('uploading');
     setReportContent('');
     setErrorMessage('');
@@ -339,6 +347,17 @@ export default function AuditPage() {
               <Github className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">GitHub</span>
             </Link>
+            <SignedOut>
+              <button
+                onClick={() => openSignIn()}
+                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-primary to-blue-600 text-xs font-bold text-white hover:opacity-90 transition-opacity"
+              >
+                Sign In
+              </button>
+            </SignedOut>
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
           </div>
         </div>
       </header>
