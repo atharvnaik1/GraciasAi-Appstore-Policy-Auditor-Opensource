@@ -244,26 +244,41 @@ export default function AuditPage() {
 
   const handleExportPdf = async () => {
     if (!reportContent || !completeReportRef.current) return;
+    
+    const loadingToast = document.createElement('div');
+    loadingToast.textContent = 'Generating PDF... This may take a moment.';
+    loadingToast.style.cssText = `
+      position: fixed; top: 20px; right: 20px; z-index: 9999;
+      background: #3b82f6; color: white; padding: 12px 20px;
+      border-radius: 8px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `;
+    document.body.appendChild(loadingToast);
+
     try {
       const html2pdf = (await import('html2pdf.js')).default;
 
-      // Build a wrapper with branded header + watermark + report content
       const wrapper = document.createElement('div');
-      wrapper.style.position = 'relative';
-      wrapper.style.backgroundColor = '#ffffff';
-      wrapper.style.padding = '24px';
-      wrapper.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      wrapper.style.color = '#1a1a1a';
-      wrapper.style.width = '800px';
+      wrapper.style.cssText = `
+        position: relative;
+        background-color: #ffffff;
+        padding: 24px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        color: #1a1a1a;
+        width: 800px;
+        max-width: 800px;
+        box-sizing: border-box;
+      `;
 
-      // Branded header
       const header = document.createElement('div');
-      header.style.borderBottom = '2px solid #7c3aed';
-      header.style.paddingBottom = '12px';
-      header.style.marginBottom = '20px';
-      header.style.display = 'flex';
-      header.style.justifyContent = 'space-between';
-      header.style.alignItems = 'center';
+      header.style.cssText = `
+        border-bottom: 2px solid #7c3aed;
+        padding-bottom: 12px;
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        page-break-inside: avoid;
+      `;
       header.innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;">
           <div style="background:linear-gradient(135deg,#7c3aed,#3b82f6);width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
@@ -281,55 +296,227 @@ export default function AuditPage() {
       `;
       wrapper.appendChild(header);
 
-      // Watermark
       const watermark = document.createElement('div');
-      watermark.style.position = 'fixed';
-      watermark.style.top = '50%';
-      watermark.style.left = '50%';
-      watermark.style.transform = 'translate(-50%, -50%) rotate(-35deg)';
-      watermark.style.fontSize = '80px';
-      watermark.style.fontWeight = '900';
-      watermark.style.color = 'rgba(124, 58, 237, 0.04)';
-      watermark.style.pointerEvents = 'none';
-      watermark.style.zIndex = '0';
-      watermark.style.whiteSpace = 'nowrap';
+      watermark.style.cssText = `
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(-35deg);
+        font-size: 60px;
+        font-weight: 900;
+        color: rgba(124, 58, 237, 0.03);
+        pointer-events: none;
+        z-index: 0;
+        white-space: nowrap;
+        user-select: none;
+      `;
       watermark.textContent = 'Gracias AI';
       wrapper.appendChild(watermark);
 
-      // Clone report content
       const clone = completeReportRef.current.cloneNode(true) as HTMLElement;
-      clone.style.maxHeight = 'none';
-      clone.style.overflow = 'visible';
-      clone.style.position = 'relative';
-      clone.style.zIndex = '1';
-      clone.querySelectorAll('*').forEach((el) => {
+      
+      clone.style.cssText = `
+        max-height: none !important;
+        overflow: visible !important;
+        position: relative;
+        z-index: 1;
+        font-size: 11px;
+        line-height: 1.5;
+        color: #1a1a1a;
+      `;
+      
+      const allElements = clone.querySelectorAll('*');
+      allElements.forEach((el) => {
         const htmlEl = el as HTMLElement;
+        
+        htmlEl.style.animation = 'none';
+        htmlEl.style.transition = 'none';
+        htmlEl.style.transform = 'none';
+        htmlEl.style.boxShadow = 'none';
+        htmlEl.style.textShadow = 'none';
+        htmlEl.style.filter = 'none';
+        htmlEl.style.backdropFilter = 'none';
+        
         htmlEl.style.color = '#1a1a1a';
         htmlEl.style.backgroundColor = 'transparent';
         htmlEl.style.backgroundImage = 'none';
         htmlEl.style.webkitBackgroundClip = 'unset';
         htmlEl.style.webkitTextFillColor = 'unset';
         htmlEl.style.borderColor = '#e5e5e5';
+        
+        htmlEl.classList.remove('bg-gradient-to-r', 'bg-gradient-to-l', 'bg-gradient-to-t', 'bg-gradient-to-b');
+        htmlEl.classList.remove('text-transparent', 'bg-clip-text');
+        htmlEl.classList.remove('animate-pulse', 'animate-spin', 'animate-bounce');
+        htmlEl.classList.remove('backdrop-blur', 'backdrop-blur-sm', 'backdrop-blur-md', 'backdrop-blur-lg');
       });
-      clone.querySelectorAll('h1, h2, h3').forEach((el) => { (el as HTMLElement).style.color = '#000000'; });
-      clone.querySelectorAll('th').forEach((el) => { const h = el as HTMLElement; h.style.backgroundColor = '#f5f5f5'; h.style.color = '#000000'; });
-      clone.querySelectorAll('code').forEach((el) => { const h = el as HTMLElement; h.style.backgroundColor = '#f0f0f0'; h.style.color = '#d63384'; });
+      
+      clone.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach((el) => { 
+        const h = el as HTMLElement; 
+        h.style.color = '#000000';
+        h.style.fontWeight = 'bold';
+        h.style.marginTop = '1.5em';
+        h.style.marginBottom = '0.5em';
+        h.style.pageBreakAfter = 'avoid';
+      });
+      
+      clone.querySelectorAll('th').forEach((el) => { 
+        const h = el as HTMLElement; 
+        h.style.backgroundColor = '#f5f5f5'; 
+        h.style.color = '#000000';
+        h.style.fontWeight = 'bold';
+        h.style.padding = '8px';
+        h.style.border = '1px solid #ddd';
+      });
+      
+      clone.querySelectorAll('td').forEach((el) => { 
+        const h = el as HTMLElement; 
+        h.style.padding = '8px';
+        h.style.border = '1px solid #ddd';
+      });
+      
+      clone.querySelectorAll('table').forEach((el) => { 
+        const h = el as HTMLElement; 
+        h.style.borderCollapse = 'collapse';
+        h.style.width = '100%';
+        h.style.marginBottom = '1em';
+        h.style.pageBreakInside = 'avoid';
+      });
+      
+      clone.querySelectorAll('code').forEach((el) => { 
+        const h = el as HTMLElement; 
+        h.style.backgroundColor = '#f0f0f0'; 
+        h.style.color = '#d63384';
+        h.style.padding = '2px 4px';
+        h.style.borderRadius = '3px';
+        h.style.fontSize = '10px';
+      });
+      
+      clone.querySelectorAll('blockquote').forEach((el) => { 
+        const h = el as HTMLElement; 
+        h.style.borderLeft = '3px solid #7c3aed';
+        h.style.paddingLeft = '1em';
+        h.style.margin = '1em 0';
+        h.style.backgroundColor = '#f9fafb';
+        h.style.padding = '0.5em 1em';
+        h.style.pageBreakInside = 'avoid';
+      });
+      
       wrapper.appendChild(clone);
 
       wrapper.style.position = 'absolute';
       wrapper.style.left = '-9999px';
+      wrapper.style.top = '0';
       document.body.appendChild(wrapper);
-      await html2pdf().from(wrapper).set({
-        margin: 10,
+
+      const pdfOptions = {
+        margin: [10, 10, 10, 10],
         filename: `gracias-ai-audit-report-${new Date().toISOString().slice(0, 10)}.pdf`,
-        image: { type: 'jpeg' as 'jpeg' | 'png' | 'webp', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0 },
-        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as 'portrait' | 'landscape' },
-      } as any).save();
-      document.body.removeChild(wrapper);
+        image: { 
+          type: 'jpeg' as 'jpeg' | 'png' | 'webp', 
+          quality: 0.95,
+          crossOrigin: 'anonymous'
+        },
+        html2canvas: { 
+          scale: 1.5,
+          useCORS: true,
+          allowTaint: false,
+          backgroundColor: '#ffffff',
+          logging: false,
+          scrollY: 0,
+          scrollX: 0,
+          width: 800,
+          height: undefined,
+          letterRendering: true,
+          onclone: (clonedDoc: Document) => {
+            const clonedBody = clonedDoc.body;
+            clonedBody.style.transform = 'none';
+            clonedBody.style.animation = 'none';
+            clonedBody.style.transition = 'none';
+          }
+        },
+        jsPDF: { 
+          unit: 'mm' as const, 
+          format: 'a4' as const, 
+          orientation: 'portrait' as 'portrait' | 'landscape',
+          compress: true,
+          precision: 2
+        },
+        pagebreak: { 
+          mode: ['avoid-all', 'css'],
+          before: '.page-break-before',
+          after: '.page-break-after',
+          avoid: '.no-break'
+        }
+      };
+
+      try {
+        await html2pdf().from(wrapper).set(pdfOptions as any).save();
+        
+        loadingToast.textContent = 'PDF exported successfully!';
+        loadingToast.style.background = '#10b981';
+        setTimeout(() => {
+          if (document.body.contains(loadingToast)) {
+            document.body.removeChild(loadingToast);
+          }
+        }, 3000);
+        
+      } catch (pdfError) {
+        console.error('PDF generation error:', pdfError);
+        
+        const fallbackOptions = {
+          ...pdfOptions,
+          html2canvas: {
+            scale: 1,
+            useCORS: false,
+            allowTaint: true,
+            backgroundColor: '#ffffff',
+            logging: true,
+            scrollY: 0
+          }
+        };
+        
+        await html2pdf().from(wrapper).set(fallbackOptions as any).save();
+        
+        loadingToast.textContent = 'PDF exported with fallback settings';
+        loadingToast.style.background = '#f59e0b';
+        setTimeout(() => {
+          if (document.body.contains(loadingToast)) {
+            document.body.removeChild(loadingToast);
+          }
+        }, 3000);
+      }
+      
+      if (document.body.contains(wrapper)) {
+        document.body.removeChild(wrapper);
+      }
+      
     } catch (err) {
       console.error('PDF export failed:', err);
-      setErrorMessage('Failed to export PDF report');
+      
+      if (document.body.contains(loadingToast)) {
+        document.body.removeChild(loadingToast);
+      }
+      
+      const errorMsg = `PDF export failed. This might be due to:\n• Large report size (${Math.round(reportContent.length / 1024)}KB)\n• Complex formatting\n• Browser compatibility\n\nTry:\n1. Refresh the page and try again\n2. Use Chrome browser for best compatibility\n3. Copy the report text manually`;
+      
+      if (confirm(errorMsg + '\n\nWould you like to copy the report text to clipboard instead?')) {
+        try {
+          await navigator.clipboard.writeText(reportContent);
+          alert('Report copied to clipboard successfully!');
+        } catch (clipboardError) {
+          console.error('Clipboard copy failed:', clipboardError);
+          const textArea = document.createElement('textarea');
+          textArea.value = reportContent;
+          textArea.style.cssText = 'position: fixed; opacity: 0; top: -9999px;';
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+          alert('Report text prepared for copying. Please paste (Ctrl+V/Cmd+V) where needed.');
+        }
+      }
+      
+      setErrorMessage('Failed to export PDF report. Please try the clipboard option.');
     }
   };
 
