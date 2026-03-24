@@ -247,7 +247,10 @@ export default function AuditPage() {
     try {
       const html2pdf = (await import('html2pdf.js')).default;
 
-      // Build a wrapper with branded header + watermark + report content
+      // Build a self-contained wrapper with inline styles for reliable PDF rendering.
+      // We inject a <style> block that forces light-theme colors on every element,
+      // overriding Tailwind's dark-mode prose classes that html2canvas would otherwise
+      // capture as black-on-black text.
       const wrapper = document.createElement('div');
       wrapper.style.position = 'relative';
       wrapper.style.backgroundColor = '#ffffff';
@@ -255,6 +258,130 @@ export default function AuditPage() {
       wrapper.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       wrapper.style.color = '#1a1a1a';
       wrapper.style.width = '800px';
+      wrapper.style.lineHeight = '1.6';
+
+      // Inject a stylesheet that comprehensively resets dark-mode colors for PDF.
+      // This is more reliable than the previous querySelectorAll('*') approach because
+      // it catches pseudo-elements, inherited styles, and Tailwind utilities.
+      const styleTag = document.createElement('style');
+      styleTag.textContent = `
+        .pdf-export-root, .pdf-export-root * {
+          color: #1a1a1a !important;
+          background-color: transparent !important;
+          background-image: none !important;
+          -webkit-background-clip: unset !important;
+          -webkit-text-fill-color: #1a1a1a !important;
+          border-color: #d1d5db !important;
+        }
+        .pdf-export-root h1, .pdf-export-root h2, .pdf-export-root h3, .pdf-export-root h4 {
+          color: #000000 !important;
+          -webkit-text-fill-color: #000000 !important;
+          margin-top: 1.2em !important;
+          margin-bottom: 0.6em !important;
+          page-break-after: avoid !important;
+        }
+        .pdf-export-root h1 { font-size: 22px !important; border-bottom: 2px solid #7c3aed !important; padding-bottom: 8px !important; }
+        .pdf-export-root h2 { font-size: 18px !important; border-bottom: 1px solid #e5e7eb !important; padding-bottom: 6px !important; }
+        .pdf-export-root h3 { font-size: 15px !important; }
+
+        /* Tables — clean, bordered, light background headers */
+        .pdf-export-root table {
+          width: 100% !important;
+          border-collapse: collapse !important;
+          margin: 12px 0 !important;
+          font-size: 12px !important;
+          page-break-inside: auto !important;
+        }
+        .pdf-export-root th {
+          background-color: #f3f4f6 !important;
+          color: #000000 !important;
+          -webkit-text-fill-color: #000000 !important;
+          font-weight: 700 !important;
+          text-align: left !important;
+          padding: 8px 10px !important;
+          border: 1px solid #d1d5db !important;
+        }
+        .pdf-export-root td {
+          padding: 6px 10px !important;
+          border: 1px solid #d1d5db !important;
+          vertical-align: top !important;
+        }
+        .pdf-export-root tr { page-break-inside: avoid !important; }
+
+        /* Blockquotes — used for every compliance check finding */
+        .pdf-export-root blockquote {
+          border-left: 4px solid #7c3aed !important;
+          background-color: #faf5ff !important;
+          margin: 12px 0 !important;
+          padding: 12px 16px !important;
+          border-radius: 0 8px 8px 0 !important;
+          page-break-inside: avoid !important;
+        }
+        .pdf-export-root blockquote * {
+          background-color: transparent !important;
+        }
+
+        /* Inline code */
+        .pdf-export-root code {
+          background-color: #f3f4f6 !important;
+          color: #d63384 !important;
+          -webkit-text-fill-color: #d63384 !important;
+          padding: 1px 5px !important;
+          border-radius: 4px !important;
+          font-size: 11px !important;
+          font-family: 'SF Mono', Menlo, Monaco, monospace !important;
+          border: 1px solid #e5e7eb !important;
+        }
+
+        /* Code blocks */
+        .pdf-export-root pre {
+          background-color: #f9fafb !important;
+          border: 1px solid #e5e7eb !important;
+          border-radius: 8px !important;
+          padding: 12px !important;
+          overflow-x: auto !important;
+          page-break-inside: avoid !important;
+        }
+        .pdf-export-root pre code {
+          background-color: transparent !important;
+          border: none !important;
+          padding: 0 !important;
+          color: #1a1a1a !important;
+          -webkit-text-fill-color: #1a1a1a !important;
+        }
+
+        /* Links */
+        .pdf-export-root a {
+          color: #7c3aed !important;
+          -webkit-text-fill-color: #7c3aed !important;
+          text-decoration: underline !important;
+        }
+
+        /* Lists */
+        .pdf-export-root ul, .pdf-export-root ol { padding-left: 20px !important; }
+        .pdf-export-root li { margin: 4px 0 !important; }
+
+        /* Horizontal rules — section dividers */
+        .pdf-export-root hr {
+          border: none !important;
+          border-top: 1px solid #e5e7eb !important;
+          margin: 20px 0 !important;
+        }
+
+        /* Strong/bold */
+        .pdf-export-root strong {
+          color: #000000 !important;
+          -webkit-text-fill-color: #000000 !important;
+          font-weight: 700 !important;
+        }
+
+        /* Paragraphs */
+        .pdf-export-root p {
+          margin: 8px 0 !important;
+          line-height: 1.6 !important;
+        }
+      `;
+      wrapper.appendChild(styleTag);
 
       // Branded header
       const header = document.createElement('div');
@@ -267,7 +394,7 @@ export default function AuditPage() {
       header.innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;">
           <div style="background:linear-gradient(135deg,#7c3aed,#3b82f6);width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
-            <span style="color:#fff;font-size:14px;font-weight:900;">G</span>
+            <span style="color:#fff !important;-webkit-text-fill-color:#fff !important;font-size:14px;font-weight:900;">G</span>
           </div>
           <div>
             <div style="font-size:16px;font-weight:800;color:#000;">Gracias AI</div>
@@ -275,7 +402,7 @@ export default function AuditPage() {
           </div>
         </div>
         <div style="text-align:right;font-size:9px;color:#666;">
-          <div><a href="https://www.producthunt.com/posts/gracias-ai" style="color:#f97316;text-decoration:none;font-weight:600;">Product Hunt</a> &nbsp;|&nbsp; <a href="https://github.com/atharvnaik1/GraciasAi-Appstore-Policy-Auditor-Opensource" style="color:#666;text-decoration:none;">GitHub</a></div>
+          <div><a href="https://www.producthunt.com/posts/gracias-ai" style="color:#f97316 !important;-webkit-text-fill-color:#f97316 !important;text-decoration:none;font-weight:600;">Product Hunt</a> &nbsp;|&nbsp; <a href="https://github.com/atharvnaik1/GraciasAi-Appstore-Policy-Auditor-Opensource" style="color:#666 !important;-webkit-text-fill-color:#666 !important;text-decoration:none;">GitHub</a></div>
           <div style="margin-top:2px;">business@gracias.sh</div>
         </div>
       `;
@@ -296,36 +423,37 @@ export default function AuditPage() {
       watermark.textContent = 'Gracias AI';
       wrapper.appendChild(watermark);
 
-      // Clone report content
+      // Clone report content and apply the pdf-export-root class so our
+      // injected stylesheet overrides all dark-mode colours reliably.
       const clone = completeReportRef.current.cloneNode(true) as HTMLElement;
+      clone.className = 'pdf-export-root';
       clone.style.maxHeight = 'none';
       clone.style.overflow = 'visible';
       clone.style.position = 'relative';
       clone.style.zIndex = '1';
-      clone.querySelectorAll('*').forEach((el) => {
-        const htmlEl = el as HTMLElement;
-        htmlEl.style.color = '#1a1a1a';
-        htmlEl.style.backgroundColor = 'transparent';
-        htmlEl.style.backgroundImage = 'none';
-        htmlEl.style.webkitBackgroundClip = 'unset';
-        htmlEl.style.webkitTextFillColor = 'unset';
-        htmlEl.style.borderColor = '#e5e5e5';
-      });
-      clone.querySelectorAll('h1, h2, h3').forEach((el) => { (el as HTMLElement).style.color = '#000000'; });
-      clone.querySelectorAll('th').forEach((el) => { const h = el as HTMLElement; h.style.backgroundColor = '#f5f5f5'; h.style.color = '#000000'; });
-      clone.querySelectorAll('code').forEach((el) => { const h = el as HTMLElement; h.style.backgroundColor = '#f0f0f0'; h.style.color = '#d63384'; });
       wrapper.appendChild(clone);
 
+      // Render off-screen
       wrapper.style.position = 'absolute';
       wrapper.style.left = '-9999px';
       document.body.appendChild(wrapper);
+
       await html2pdf().from(wrapper).set({
-        margin: 10,
+        margin: [12, 10, 12, 10],
         filename: `gracias-ai-audit-report-${new Date().toISOString().slice(0, 10)}.pdf`,
         image: { type: 'jpeg' as 'jpeg' | 'png' | 'webp', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          scrollY: 0,
+          windowWidth: 800,
+          backgroundColor: '#ffffff',
+        },
         jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as 'portrait' | 'landscape' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
       } as any).save();
+
       document.body.removeChild(wrapper);
     } catch (err) {
       console.error('PDF export failed:', err);
