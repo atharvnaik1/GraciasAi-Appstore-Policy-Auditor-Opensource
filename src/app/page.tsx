@@ -281,9 +281,10 @@ export default function AuditPage() {
       `;
       wrapper.appendChild(header);
 
-      // Watermark
+      // Watermark — use 'absolute' (not 'fixed') so html2canvas captures it
+      // within the off-screen wrapper positioned at left:-9999px
       const watermark = document.createElement('div');
-      watermark.style.position = 'fixed';
+      watermark.style.position = 'absolute';
       watermark.style.top = '50%';
       watermark.style.left = '50%';
       watermark.style.transform = 'translate(-50%, -50%) rotate(-35deg)';
@@ -319,14 +320,20 @@ export default function AuditPage() {
       wrapper.style.position = 'absolute';
       wrapper.style.left = '-9999px';
       document.body.appendChild(wrapper);
-      await html2pdf().from(wrapper).set({
-        margin: 10,
-        filename: `gracias-ai-audit-report-${new Date().toISOString().slice(0, 10)}.pdf`,
-        image: { type: 'jpeg' as 'jpeg' | 'png' | 'webp', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0 },
-        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as 'portrait' | 'landscape' },
-      } as any).save();
-      document.body.removeChild(wrapper);
+      try {
+        await html2pdf().set({
+          margin: 10,
+          filename: `gracias-ai-audit-report-${new Date().toISOString().slice(0, 10)}.pdf`,
+          image: { type: 'jpeg' as 'jpeg' | 'png' | 'webp', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0 },
+          jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as 'portrait' | 'landscape' },
+          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+        } as any).from(wrapper).save();
+      } finally {
+        if (wrapper.parentNode) {
+          document.body.removeChild(wrapper);
+        }
+      }
     } catch (err) {
       console.error('PDF export failed:', err);
       setErrorMessage('Failed to export PDF report');
