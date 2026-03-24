@@ -242,92 +242,46 @@ export default function AuditPage() {
     }
   };
 
-  const handleExportPdf = async () => {
+    const handleExportPdf = async () => {
     if (!reportContent || !completeReportRef.current) return;
     try {
       const html2pdf = (await import('html2pdf.js')).default;
+      
+      const element = completeReportRef.current;
+      const opt = {
+        margin: [15, 15, 15, 15],
+        filename: `gracias-ai-audit-${new Date().toISOString().slice(0, 10)}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+          scale: 2, 
+          useCORS: true, 
+          letterRendering: true,
+          windowWidth: 1200
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      };
 
-      // Build a wrapper with branded header + watermark + report content
-      const wrapper = document.createElement('div');
-      wrapper.style.position = 'relative';
-      wrapper.style.backgroundColor = '#ffffff';
-      wrapper.style.padding = '24px';
-      wrapper.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      wrapper.style.color = '#1a1a1a';
-      wrapper.style.width = '800px';
-
-      // Branded header
-      const header = document.createElement('div');
-      header.style.borderBottom = '2px solid #7c3aed';
-      header.style.paddingBottom = '12px';
-      header.style.marginBottom = '20px';
-      header.style.display = 'flex';
-      header.style.justifyContent = 'space-between';
-      header.style.alignItems = 'center';
-      header.innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="background:linear-gradient(135deg,#7c3aed,#3b82f6);width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
-            <span style="color:#fff;font-size:14px;font-weight:900;">G</span>
-          </div>
-          <div>
-            <div style="font-size:16px;font-weight:800;color:#000;">Gracias AI</div>
-            <div style="font-size:9px;color:#666;letter-spacing:1px;text-transform:uppercase;">App Store Compliance Auditor</div>
-          </div>
-        </div>
-        <div style="text-align:right;font-size:9px;color:#666;">
-          <div><a href="https://www.producthunt.com/posts/gracias-ai" style="color:#f97316;text-decoration:none;font-weight:600;">Product Hunt</a> &nbsp;|&nbsp; <a href="https://github.com/atharvnaik1/GraciasAi-Appstore-Policy-Auditor-Opensource" style="color:#666;text-decoration:none;">GitHub</a></div>
-          <div style="margin-top:2px;">business@gracias.sh</div>
-        </div>
-      `;
-      wrapper.appendChild(header);
-
-      // Watermark
-      const watermark = document.createElement('div');
-      watermark.style.position = 'fixed';
-      watermark.style.top = '50%';
-      watermark.style.left = '50%';
-      watermark.style.transform = 'translate(-50%, -50%) rotate(-35deg)';
-      watermark.style.fontSize = '80px';
-      watermark.style.fontWeight = '900';
-      watermark.style.color = 'rgba(124, 58, 237, 0.04)';
-      watermark.style.pointerEvents = 'none';
-      watermark.style.zIndex = '0';
-      watermark.style.whiteSpace = 'nowrap';
-      watermark.textContent = 'Gracias AI';
-      wrapper.appendChild(watermark);
-
-      // Clone report content
-      const clone = completeReportRef.current.cloneNode(true) as HTMLElement;
-      clone.style.maxHeight = 'none';
-      clone.style.overflow = 'visible';
-      clone.style.position = 'relative';
-      clone.style.zIndex = '1';
-      clone.querySelectorAll('*').forEach((el) => {
-        const htmlEl = el as HTMLElement;
-        htmlEl.style.color = '#1a1a1a';
-        htmlEl.style.backgroundColor = 'transparent';
-        htmlEl.style.backgroundImage = 'none';
-        htmlEl.style.webkitBackgroundClip = 'unset';
-        htmlEl.style.webkitTextFillColor = 'unset';
-        htmlEl.style.borderColor = '#e5e5e5';
+      // Create a dedicated print container to avoid UI artifacts
+      const printContainer = document.createElement('div');
+      printContainer.className = 'markdown-body';
+      printContainer.style.padding = '20px';
+      printContainer.style.color = '#000000';
+      printContainer.style.backgroundColor = '#ffffff';
+      printContainer.innerHTML = element.innerHTML;
+      
+      // Force black text for all elements in PDF
+      printContainer.querySelectorAll('*').forEach((el: any) => {
+        el.style.color = '#000000';
+        el.style.backgroundColor = 'transparent';
       });
-      clone.querySelectorAll('h1, h2, h3').forEach((el) => { (el as HTMLElement).style.color = '#000000'; });
-      clone.querySelectorAll('th').forEach((el) => { const h = el as HTMLElement; h.style.backgroundColor = '#f5f5f5'; h.style.color = '#000000'; });
-      clone.querySelectorAll('code').forEach((el) => { const h = el as HTMLElement; h.style.backgroundColor = '#f0f0f0'; h.style.color = '#d63384'; });
-      wrapper.appendChild(clone);
 
-      wrapper.style.position = 'absolute';
-      wrapper.style.left = '-9999px';
-      document.body.appendChild(wrapper);
-      await html2pdf().from(wrapper).set({
-        margin: 10,
-        filename: `gracias-ai-audit-report-${new Date().toISOString().slice(0, 10)}.pdf`,
-        image: { type: 'jpeg' as 'jpeg' | 'png' | 'webp', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0 },
-        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as 'portrait' | 'landscape' },
-      } as any).save();
-      document.body.removeChild(wrapper);
+      await html2pdf().set(opt).from(printContainer).save();
     } catch (err) {
+      console.error('PDF export failed:', err);
+      setErrorMessage('Failed to export PDF report');
+    }
+  }; catch (err) {
       console.error('PDF export failed:', err);
       setErrorMessage('Failed to export PDF report');
     }
