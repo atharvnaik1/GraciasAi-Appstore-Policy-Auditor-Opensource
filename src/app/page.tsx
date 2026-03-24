@@ -67,6 +67,7 @@ export default function AuditPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [showFileList, setShowFileList] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const reportRef = useRef<HTMLDivElement>(null);
@@ -244,92 +245,239 @@ export default function AuditPage() {
 
   const handleExportPdf = async () => {
     if (!reportContent || !completeReportRef.current) return;
+    
+    // Show loading state
+    setIsExportingPdf(true);
+    setErrorMessage('');
+    
     try {
-      const html2pdf = (await import('html2pdf.js')).default;
+      // Load html2pdf with retry mechanism
+      let html2pdf: any = null;
+      let retries = 3;
+      
+      while (retries > 0 && !html2pdf) {
+        try {
+          const module = await import('html2pdf.js');
+          html2pdf = module.default || module;
+          break;
+        } catch (importErr) {
+          retries--;
+          if (retries === 0) throw importErr;
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      if (!html2pdf) {
+        throw new Error('Failed to load PDF library');
+      }
 
       // Build a wrapper with branded header + watermark + report content
       const wrapper = document.createElement('div');
+      wrapper.id = 'pdf-export-wrapper';
       wrapper.style.position = 'relative';
       wrapper.style.backgroundColor = '#ffffff';
-      wrapper.style.padding = '24px';
+      wrapper.style.padding = '32px 40px';
       wrapper.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       wrapper.style.color = '#1a1a1a';
       wrapper.style.width = '800px';
+      wrapper.style.minHeight = '100%';
+      wrapper.style.boxSizing = 'border-box';
+      wrapper.style.lineHeight = '1.6';
 
       // Branded header
       const header = document.createElement('div');
       header.style.borderBottom = '2px solid #7c3aed';
-      header.style.paddingBottom = '12px';
-      header.style.marginBottom = '20px';
+      header.style.paddingBottom = '16px';
+      header.style.marginBottom = '24px';
       header.style.display = 'flex';
       header.style.justifyContent = 'space-between';
       header.style.alignItems = 'center';
       header.innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="background:linear-gradient(135deg,#7c3aed,#3b82f6);width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
-            <span style="color:#fff;font-size:14px;font-weight:900;">G</span>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="background:linear-gradient(135deg,#7c3aed,#3b82f6);width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+            <span style="color:#fff;font-size:16px;font-weight:900;">G</span>
           </div>
           <div>
-            <div style="font-size:16px;font-weight:800;color:#000;">Gracias AI</div>
-            <div style="font-size:9px;color:#666;letter-spacing:1px;text-transform:uppercase;">App Store Compliance Auditor</div>
+            <div style="font-size:18px;font-weight:800;color:#000;">Gracias AI</div>
+            <div style="font-size:10px;color:#666;letter-spacing:1px;text-transform:uppercase;">App Store Compliance Auditor</div>
           </div>
         </div>
-        <div style="text-align:right;font-size:9px;color:#666;">
-          <div><a href="https://www.producthunt.com/posts/gracias-ai" style="color:#f97316;text-decoration:none;font-weight:600;">Product Hunt</a> &nbsp;|&nbsp; <a href="https://github.com/atharvnaik1/GraciasAi-Appstore-Policy-Auditor-Opensource" style="color:#666;text-decoration:none;">GitHub</a></div>
-          <div style="margin-top:2px;">business@gracias.sh</div>
+        <div style="text-align:right;font-size:10px;color:#666;">
+          <div><span style="color:#f97316;font-weight:600;">Product Hunt</span> &nbsp;|&nbsp; <span style="color:#666;">GitHub</span></div>
+          <div style="margin-top:4px;color:#7c3aed;">business@gracias.sh</div>
         </div>
       `;
       wrapper.appendChild(header);
 
-      // Watermark
-      const watermark = document.createElement('div');
-      watermark.style.position = 'fixed';
-      watermark.style.top = '50%';
-      watermark.style.left = '50%';
-      watermark.style.transform = 'translate(-50%, -50%) rotate(-35deg)';
-      watermark.style.fontSize = '80px';
-      watermark.style.fontWeight = '900';
-      watermark.style.color = 'rgba(124, 58, 237, 0.04)';
-      watermark.style.pointerEvents = 'none';
-      watermark.style.zIndex = '0';
-      watermark.style.whiteSpace = 'nowrap';
-      watermark.textContent = 'Gracias AI';
-      wrapper.appendChild(watermark);
+      // Report metadata
+      const meta = document.createElement('div');
+      meta.style.marginBottom = '24px';
+      meta.style.padding = '12px 16px';
+      meta.style.backgroundColor = '#f8f9fa';
+      meta.style.borderRadius = '8px';
+      meta.style.borderLeft = '4px solid #7c3aed';
+      meta.innerHTML = `
+        <div style="font-size:12px;color:#333;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <div><strong>Files Analyzed:</strong> ${filesScanned}</div>
+          <div><strong>Generated:</strong> ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+        </div>
+      `;
+      wrapper.appendChild(meta);
 
-      // Clone report content
+      // Clone report content with proper styling
       const clone = completeReportRef.current.cloneNode(true) as HTMLElement;
+      clone.id = 'pdf-report-content';
       clone.style.maxHeight = 'none';
       clone.style.overflow = 'visible';
       clone.style.position = 'relative';
       clone.style.zIndex = '1';
+      
+      // Apply consistent styles to all elements
       clone.querySelectorAll('*').forEach((el) => {
         const htmlEl = el as HTMLElement;
+        const tagName = el.tagName.toLowerCase();
+        
+        // Reset all colors
         htmlEl.style.color = '#1a1a1a';
         htmlEl.style.backgroundColor = 'transparent';
         htmlEl.style.backgroundImage = 'none';
         htmlEl.style.webkitBackgroundClip = 'unset';
         htmlEl.style.webkitTextFillColor = 'unset';
-        htmlEl.style.borderColor = '#e5e5e5';
+        
+        // Tag-specific styling
+        if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName)) {
+          htmlEl.style.color = '#000000';
+          htmlEl.style.marginTop = '24px';
+          htmlEl.style.marginBottom = '12px';
+          htmlEl.style.fontWeight = '700';
+        }
+        if (tagName === 'h1') htmlEl.style.fontSize = '24px';
+        if (tagName === 'h2') htmlEl.style.fontSize = '20px';
+        if (tagName === 'h3') htmlEl.style.fontSize = '16px';
+        
+        if (tagName === 'table') {
+          htmlEl.style.width = '100%';
+          htmlEl.style.borderCollapse = 'collapse';
+          htmlEl.style.marginTop = '16px';
+          htmlEl.style.marginBottom = '16px';
+        }
+        if (tagName === 'th') {
+          htmlEl.style.backgroundColor = '#7c3aed';
+          htmlEl.style.color = '#ffffff';
+          htmlEl.style.padding = '10px 12px';
+          htmlEl.style.textAlign = 'left';
+          htmlEl.style.fontWeight = '600';
+          htmlEl.style.borderBottom = '2px solid #5b21b6';
+        }
+        if (tagName === 'td') {
+          htmlEl.style.padding = '10px 12px';
+          htmlEl.style.borderBottom = '1px solid #e5e5e5';
+        }
+        if (tagName === 'tr:nth-child(even)') {
+          htmlEl.style.backgroundColor = '#f9fafb';
+        }
+        if (tagName === 'code') {
+          htmlEl.style.backgroundColor = '#f0f0f0';
+          htmlEl.style.color = '#d63384';
+          htmlEl.style.padding = '2px 6px';
+          htmlEl.style.borderRadius = '4px';
+          htmlEl.style.fontSize = '13px';
+          htmlEl.style.fontFamily = 'Monaco, Consolas, monospace';
+        }
+        if (tagName === 'pre') {
+          htmlEl.style.backgroundColor = '#f6f8fa';
+          htmlEl.style.padding = '16px';
+          htmlEl.style.borderRadius = '8px';
+          htmlEl.style.overflow = 'hidden';
+          htmlEl.style.border = '1px solid #e5e5e5';
+        }
+        if (tagName === 'blockquote') {
+          htmlEl.style.borderLeft = '4px solid #7c3aed';
+          htmlEl.style.paddingLeft = '16px';
+          htmlEl.style.marginLeft = '0';
+          htmlEl.style.backgroundColor = '#faf5ff';
+          htmlEl.style.padding = '12px 16px';
+          htmlEl.style.borderRadius = '0 8px 8px 0';
+        }
+        if (tagName === 'ul' || tagName === 'ol') {
+          htmlEl.style.paddingLeft = '24px';
+          htmlEl.style.marginBottom = '16px';
+        }
+        if (tagName === 'li') {
+          htmlEl.style.marginBottom = '6px';
+        }
+        if (tagName === 'p') {
+          htmlEl.style.marginBottom = '12px';
+          htmlEl.style.lineHeight = '1.7';
+        }
+        if (tagName === 'a') {
+          htmlEl.style.color = '#7c3aed';
+          htmlEl.style.textDecoration = 'underline';
+        }
+        if (tagName === 'hr') {
+          htmlEl.style.border = 'none';
+          htmlEl.style.borderTop = '1px solid #e5e5e5';
+          htmlEl.style.margin = '24px 0';
+        }
       });
-      clone.querySelectorAll('h1, h2, h3').forEach((el) => { (el as HTMLElement).style.color = '#000000'; });
-      clone.querySelectorAll('th').forEach((el) => { const h = el as HTMLElement; h.style.backgroundColor = '#f5f5f5'; h.style.color = '#000000'; });
-      clone.querySelectorAll('code').forEach((el) => { const h = el as HTMLElement; h.style.backgroundColor = '#f0f0f0'; h.style.color = '#d63384'; });
+      
       wrapper.appendChild(clone);
 
+      // Footer
+      const footer = document.createElement('div');
+      footer.style.marginTop = '32px';
+      footer.style.paddingTop = '16px';
+      footer.style.borderTop = '1px solid #e5e5e5';
+      footer.style.textAlign = 'center';
+      footer.style.fontSize = '10px';
+      footer.style.color = '#666';
+      footer.innerHTML = `
+        <div>Generated by Gracias AI - App Store Compliance Auditor</div>
+        <div style="margin-top:4px;">For support: business@gracias.sh | GitHub: atharvnaik1/GraciasAi-Appstore-Policy-Auditor-Opensource</div>
+      `;
+      wrapper.appendChild(footer);
+
+      // Position off-screen
       wrapper.style.position = 'absolute';
       wrapper.style.left = '-9999px';
+      wrapper.style.top = '0';
       document.body.appendChild(wrapper);
-      await html2pdf().from(wrapper).set({
-        margin: 10,
-        filename: `gracias-ai-audit-report-${new Date().toISOString().slice(0, 10)}.pdf`,
-        image: { type: 'jpeg' as 'jpeg' | 'png' | 'webp', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0 },
-        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as 'portrait' | 'landscape' },
-      } as any).save();
-      document.body.removeChild(wrapper);
-    } catch (err) {
+
+      // Generate PDF with optimized settings
+      await html2pdf()
+        .set({
+          margin: [10, 10, 10, 10],
+          filename: `gracias-ai-audit-report-${new Date().toISOString().slice(0, 10)}.pdf`,
+          image: { type: 'jpeg', quality: 0.95 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            scrollY: 0,
+            scrollX: 0,
+            windowWidth: 850,
+            windowHeight: wrapper.scrollHeight + 100,
+            removeContainer: true,
+          },
+          jsPDF: {
+            unit: 'mm',
+            format: 'a4',
+            orientation: 'portrait',
+          },
+        })
+        .from(wrapper)
+        .save();
+
+      // Cleanup
+      if (document.body.contains(wrapper)) {
+        document.body.removeChild(wrapper);
+      }
+
+    } catch (err: any) {
       console.error('PDF export failed:', err);
-      setErrorMessage('Failed to export PDF report');
+      setErrorMessage(`Failed to export PDF report: ${err.message || 'Unknown error'}. Try downloading as Markdown instead.`);
+    } finally {
+      setIsExportingPdf(false);
     }
   };
 
@@ -1052,9 +1200,22 @@ export default function AuditPage() {
                   </button>
                   <button
                     onClick={handleExportPdf}
-                    className="flex-1 sm:flex-none px-4 py-2.5 bg-blue-600 text-white hover:bg-blue-700 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+                    disabled={isExportingPdf}
+                    className={`flex-1 sm:flex-none px-4 py-2.5 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+                      isExportingPdf
+                        ? 'bg-blue-600/50 text-white/70 cursor-wait'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
                   >
-                    <FileText className="w-3.5 h-3.5" /> PDF
+                    {isExportingPdf ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="w-3.5 h-3.5" /> PDF
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={() => { setPhase('idle'); setReportContent(''); setFile(null); }}
