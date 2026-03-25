@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" width="1200" height="400">
+  <defs>
+    <linearGradient id="mainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a855f7"/>
+      <stop offset="100%" style="stop-color:#3b82f6"/>
+    </linearGradient>
+  </defs>
+  <!-- Shield shape (scaled to fit) -->
+  <g transform="translate(40, 20) scale(0.7)">
+    <path d="M256 32 L80 96 L80 240 C80 352 160 432 256 480 C352 432 432 352 432 240 L432 96 Z" fill="url(#mainGradient)"/>
+    <!-- AI circuit nodes -->
+    <circle cx="180" cy="180" r="24" fill="#ffffff" opacity="0.9"/>
+    <circle cx="256" cy="140" r="20" fill="#ffffff" opacity="0.8"/>
+    <circle cx="332" cy="180" r="24" fill="#ffffff" opacity="0.9"/>
+    <circle cx="256" cy="260" r="28" fill="#ffffff" opacity="0.95"/>
+    <circle cx="180" cy="320" r="22" fill="#ffffff" opacity="0.85"/>
+    <circle cx="332" cy="320" r="22" fill="#ffffff" opacity="0.85"/>
+    <!-- Circuit connections -->
+    <path d="M180 180 L256 140 M256 140 L332 180 M180 180 L256 260 M332 180 L256 260 M256 260 L180 320 M256 260 L332 320" 
+          stroke="#ffffff" stroke-width="6" fill="none" opacity="0.7" stroke-linecap="round"/>
+    <!-- App Store inspired rounded square overlay -->
+    <rect x="200" y="300" width="112" height="112" rx="24" fill="#ffffff" opacity="0.15"/>
+  </g>
+  <!-- Wordmark: Gracias AI -->
+  <text x="450" y="235" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="120" font-weight="700">
+    <tspan fill="#1a1a2e">Gracias</tspan>
+    <tspan fill="url(#mainGradient)"> AI</tspan>
+  </text>
+  <!-- Tagline (optional) -->
+  <text x="450" y="295" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="28" font-weight="400" fill="#6b7280">
+    App Store Policy Auditor
+  </text>
+</svg>
