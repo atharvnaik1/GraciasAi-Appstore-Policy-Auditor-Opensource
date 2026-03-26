@@ -1,0 +1,16 @@
+
+# {{title}}
+
+## Introduction
+{{introduction}}
+
+## Findings
+{{#findings}}
+* {{finding}}
+{{/findings}}
+
+## Conclusions
+{{conclusions}}
+
+## Recommendations
+{{recommendations}}
