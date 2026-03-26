@@ -1,0 +1,28 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Gracias AI logomark</title>
+  <desc id="desc">Shield + neural nodes + check mark in purple-blue gradient.</desc>
+  <defs>
+    <linearGradient id="g" x1="96" y1="96" x2="416" y2="416" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a855f7"/>
+      <stop offset="1" stop-color="#3b82f6"/>
+    </linearGradient>
+  </defs>
+
+  <path d="M256 52L396 108V236c0 106-68 173-140 224C184 409 116 342 116 236V108L256 52Z" fill="url(#g)"/>
+  <path d="M256 105L350 142V233c0 73-44 120-94 160-50-40-94-87-94-160v-91L256 105Z" fill="rgba(255,255,255,.16)"/>
+
+  <g fill="#fff">
+    <circle cx="196" cy="198" r="12"/>
+    <circle cx="256" cy="176" r="12"/>
+    <circle cx="316" cy="204" r="12"/>
+    <circle cx="224" cy="254" r="10"/>
+    <circle cx="288" cy="254" r="10"/>
+  </g>
+
+  <g stroke="#fff" stroke-width="8" stroke-linecap="round" opacity="0.9">
+    <path d="M196 198L256 176L316 204" fill="none"/>
+    <path d="M256 176L224 254L288 254L316 204" fill="none"/>
+  </g>
+
+  <path d="M196 284l38 38 84-84" fill="none" stroke="#fff" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

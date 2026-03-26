@@ -1,0 +1,26 @@
+<svg width="960" height="320" viewBox="0 0 960 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Gracias AI wordmark dark</title>
+  <desc id="desc">Icon + Gracias AI wordmark for dark backgrounds.</desc>
+
+  <defs>
+    <linearGradient id="g" x1="40" y1="40" x2="280" y2="280" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a855f7"/>
+      <stop offset="1" stop-color="#3b82f6"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="960" height="320" fill="#0f172a"/>
+  <path d="M160 24L268 68V166c0 82-52 134-108 173C104 300 52 248 52 166V68L160 24Z" fill="url(#g)"/>
+  <path d="M160 66L230 95v68c0 55-32 90-70 120-38-30-70-65-70-120V95l70-29Z" fill="rgba(255,255,255,.16)"/>
+
+  <g fill="#fff">
+    <circle cx="116" cy="132" r="8"/>
+    <circle cx="160" cy="118" r="8"/>
+    <circle cx="204" cy="136" r="8"/>
+  </g>
+  <path d="M116 132L160 118L204 136" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+  <path d="M118 188l26 24 56-56" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <text x="330" y="170" font-family="Inter, Segoe UI, Roboto, Arial, sans-serif" font-size="92" font-weight="700" fill="#ffffff">Gracias AI</text>
+  <text x="334" y="220" font-family="Inter, Segoe UI, Roboto, Arial, sans-serif" font-size="26" font-weight="500" fill="#cbd5e1">App Store Compliance Auditor</text>
+</svg>
