@@ -7,7 +7,7 @@ import {
   ChevronDown, Download, ArrowLeft,
   ShieldCheck, AlertTriangle, CheckCircle, XCircle,
   FileText, Sparkles, Info, Github, ExternalLink, Building2, Eye,
-  Zap, Lock, Code2, Clock, Apple, Cpu
+  Zap, Lock, Code2, Clock, Apple, Cpu, Smartphone
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Link from 'next/link';
@@ -66,6 +66,7 @@ export default function AuditPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [showFileList, setShowFileList] = useState(false);
+  const [detectedPlatform, setDetectedPlatform] = useState<'ios' | 'android' | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const reportRef = useRef<HTMLDivElement>(null);
@@ -104,12 +105,13 @@ export default function AuditPage() {
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile) {
       const ext = droppedFile.name.split('.').pop()?.toLowerCase();
-      if (ext !== 'ipa') {
-        setErrorMessage('Please upload an .ipa file');
+      if (ext !== 'ipa' && ext !== 'apk') {
+        setErrorMessage('Please upload an .ipa (iOS) or .apk (Android) file');
       } else if (droppedFile.size > 150 * 1024 * 1024) {
         setErrorMessage('File exceeds maximum size of 150MB');
       } else {
         setFile(droppedFile);
+        setDetectedPlatform(ext === 'apk' ? 'android' : 'ios');
         setErrorMessage('');
       }
     }
@@ -119,8 +121,8 @@ export default function AuditPage() {
     const selected = e.target.files?.[0];
     if (selected) {
       const ext = selected.name.split('.').pop()?.toLowerCase();
-      if (ext !== 'ipa') {
-        setErrorMessage('Please upload an .ipa file');
+      if (ext !== 'ipa' && ext !== 'apk') {
+        setErrorMessage('Please upload an .ipa (iOS) or .apk (Android) file');
         e.target.value = '';
         return;
       }
@@ -130,6 +132,7 @@ export default function AuditPage() {
         return;
       }
       setFile(selected);
+      setDetectedPlatform(ext === 'apk' ? 'android' : 'ios');
       setErrorMessage('');
     }
     e.target.value = '';
@@ -186,6 +189,9 @@ export default function AuditPage() {
               setFilesScanned(parsed.filesScanned);
               totalScannedTemp = parsed.filesScanned;
               setFileNames(parsed.fileNames || []);
+              if (parsed.platform) {
+                setDetectedPlatform(parsed.platform);
+              }
             } else if (parsed.type === 'content') {
               accumulated += parsed.text;
               setReportContent(accumulated);
@@ -363,7 +369,7 @@ export default function AuditPage() {
                   className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-xs font-semibold text-primary mb-6"
                 >
                   <Zap className="w-3.5 h-3.5" />
-                  AI-Powered Compliance Auditing for iOS
+                  AI-Powered Compliance Auditing for iOS &amp; Android
                 </motion.div>
 
                 <motion.h1
@@ -372,10 +378,10 @@ export default function AuditPage() {
                   transition={{ delay: 0.2 }}
                   className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight mb-6 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]"
                 >
-                  <span className="text-white">Audit Your iOS App</span>
+                  <span className="text-white">Audit Your App</span>
                   <br />
                   <span className="text-white">Before </span>
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#a78bfa] via-[#818cf8] to-[#60a5fa] [-webkit-text-stroke:0.5px_rgba(255,255,255,0.1)]">Apple Does</span>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#a78bfa] via-[#818cf8] to-[#60a5fa] [-webkit-text-stroke:0.5px_rgba(255,255,255,0.1)]">App Stores Do</span>
                 </motion.h1>
 
                 <motion.p
@@ -384,7 +390,7 @@ export default function AuditPage() {
                   transition={{ delay: 0.3 }}
                   className="text-muted-foreground text-base md:text-xl max-w-2xl mx-auto leading-relaxed mb-4"
                 >
-                  Upload your iOS project and get a comprehensive audit against Apple&apos;s Review Guidelines.
+                  Upload your iOS (.ipa) or Android (.apk) project and get a comprehensive audit against Apple&apos;s Review Guidelines or Google Play Developer Policies.
                   Catch rejection risks before you submit.
                 </motion.p>
 
@@ -428,7 +434,7 @@ export default function AuditPage() {
                         <input
                           ref={fileInputRef}
                           type="file"
-                          accept=".ipa"
+                          accept=".ipa,.apk"
                           onChange={handleFileSelect}
                           className="hidden"
                         />
@@ -442,12 +448,23 @@ export default function AuditPage() {
                               <div className="p-3 rounded-2xl bg-green-500/10 border border-green-500/20">
                                 <FileArchive className="w-8 h-8 text-green-400" />
                               </div>
+                              <div className="flex items-center gap-2">
+                                {detectedPlatform === 'android' ? (
+                                  <span className="px-2 py-0.5 text-xs font-semibold text-green-400 bg-green-500/10 border border-green-500/20 rounded-full flex items-center gap-1">
+                                    <Smartphone className="w-3 h-3" /> Android
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 text-xs font-semibold text-primary bg-primary/10 border border-primary/20 rounded-full flex items-center gap-1">
+                                    <Apple className="w-3 h-3" /> iOS
+                                  </span>
+                                )}
+                              </div>
                               <div>
                                 <p className="text-white font-semibold text-sm md:text-base break-all line-clamp-1 max-w-[280px]">{file.name}</p>
                                 <p className="text-muted-foreground text-xs mt-1">{formatFileSize(file.size)}</p>
                               </div>
                               <button
-                                onClick={(e) => { e.stopPropagation(); setFile(null); }}
+                                onClick={(e) => { e.stopPropagation(); setFile(null); setDetectedPlatform(null); }}
                                 className="px-3 py-1.5 text-xs font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg transition-all flex items-center gap-1.5"
                               >
                                 <XCircle className="w-3.5 h-3.5" /> Remove
@@ -459,13 +476,13 @@ export default function AuditPage() {
                                 <Upload className="w-7 h-7 text-muted-foreground group-hover:text-primary transition-colors" />
                               </div>
                               <p className="text-white font-semibold text-sm md:text-base mb-1">
-                                Drop your .ipa file here
+                                Drop your .ipa or .apk file here
                               </p>
                               <p className="text-muted-foreground text-xs mb-3">
-                                <span className="text-primary">.ipa</span> files up to 150MB
+                                <span className="text-primary">.ipa</span> (iOS) or <span className="text-green-400">.apk</span> (Android) files up to 150MB
                               </p>
                               <span className="text-[10px] text-muted-foreground/60 font-medium">
-                                .swift, .m, .plist, .entitlements, .storyboard &amp; more
+                                iOS: .swift, .m, .plist, .storyboard | Android: .kt, .java, .gradle, .xml
                               </span>
                             </div>
                           )}
