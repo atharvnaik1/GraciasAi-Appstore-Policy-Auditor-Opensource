@@ -15,7 +15,9 @@
     "@clerk/nextjs": "^6.39.1",
     "busboy": "^1.6.0",
     "framer-motion": "^12.38.0",
-    "html2pdf.js": "^0.14.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.2",
+    "dompurify": "^3.2.4",
     "lru-cache": "^10.4.3",
     "lucide-react": "^0.577.0",
     "marked": "^15.0.12",
@@ -29,6 +31,7 @@
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.10",
     "@types/busboy": "^1.5.4",
+    "@types/dompurify": "^3.2.0",
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "autoprefixer": "^10.4.27",
