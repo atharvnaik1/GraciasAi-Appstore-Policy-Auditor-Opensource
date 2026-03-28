@@ -1,0 +1,26 @@
+<svg width="400" height="100" viewBox="0 0 400 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="wordGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Icon (smaller) -->
+  <g transform="translate(10, 10) scale(0.4)">
+    <path d="M100 10 L180 40 L180 100 C180 150 100 190 100 190 C100 190 20 150 20 100 L20 40 Z" 
+          fill="url(#wordGrad)"/>
+    <path d="M60 100 L85 125 L140 70" 
+          fill="none" stroke="white" stroke-width="12" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Text: Gracias -->
+  <text x="100" y="60" font-family="system-ui, -apple-system, sans-serif" font-size="36" font-weight="600" fill="#1f2937">
+    Gracias
+  </text>
+  
+  <!-- Text: AI -->
+  <text x="220" y="60" font-family="system-ui, -apple-system, sans-serif" font-size="36" font-weight="700" fill="url(#wordGrad)">
+    AI
+  </text>
+</svg>
