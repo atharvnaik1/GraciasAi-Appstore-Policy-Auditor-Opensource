@@ -12,7 +12,6 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Link from 'next/link';
-import { UserButton, SignedOut, SignedIn, useAuth, useClerk } from '@clerk/nextjs';
 
 type AuditPhase = 'idle' | 'uploading' | 'analyzing' | 'complete' | 'error';
 
@@ -50,6 +49,55 @@ const selectStyle = {
   backgroundRepeat: 'no-repeat' as const,
   backgroundPosition: 'right 8px center',
   paddingRight: '24px',
+};
+
+
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Gracias AI',
+  url: 'https://opensource.gracias.sh',
+  email: 'business@gracias.sh',
+  logo: 'https://opensource.gracias.sh/favicon.svg',
+};
+
+const webApplicationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'Gracias AI App Store Compliance Auditor',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Web',
+  url: 'https://opensource.gracias.sh',
+  description:
+    'AI-powered mobile app compliance auditing with structured reports, remediation steps, and PDF export.',
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+  },
+};
+
+const faqJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'What does Gracias AI audit?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'It audits uploaded mobile app packages for App Store and Play Store compliance risks, then generates a structured remediation report.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'What does the generated report include?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Each report includes severity, policy reference, evidence, impact, and actionable remediation steps that can be turned into developer-ready tasks.',
+      },
+    },
+  ],
 };
 
 export default function AuditPage() {
@@ -237,8 +285,6 @@ export default function AuditPage() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  const { isSignedIn } = useAuth();
-  const { openSignIn, openSignUp } = useClerk();
 
   const handleRunAudit = async () => {
     if (!file || !claudeApiKey.trim()) {
@@ -250,12 +296,6 @@ export default function AuditPage() {
     }
     if (isUploading) { setErrorMessage('Please wait for the file upload to complete.'); return; }
     if (uploadError) { setErrorMessage('Upload failed. Please re-select your file.'); return; }
-
-    // Sign-in check only here, not on page load
-    if (!isSignedIn) {
-      openSignIn();
-      return;
-    }
 
     setPhase('analyzing');
     setReportContent('');
@@ -569,7 +609,7 @@ export default function AuditPage() {
   const isReady = file && claudeApiKey.trim() && !isUploading && !uploadError;
 
   return (
-    <main className="min-h-[100dvh] w-full bg-background text-foreground selection:bg-primary/30 relative overflow-hidden font-sans">
+    <main id="top" className="min-h-[100dvh] w-full bg-background text-foreground selection:bg-primary/30 relative overflow-hidden font-sans">
       {/* No full-screen auth gate — sign-in is only triggered on audit button click */}
 
       {/* Animated Background */}
@@ -643,17 +683,14 @@ export default function AuditPage() {
                 </>
               )}
             </Link>
-            <SignedOut>
-              <button
-                onClick={() => openSignIn()}
-                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-primary to-blue-600 text-xs font-bold text-white hover:opacity-90 transition-opacity"
-              >
-                Sign In
-              </button>
-            </SignedOut>
-            <SignedIn>
-              <UserButton />
-            </SignedIn>
+            <a
+              href="https://github.com/atharvnaik1/GraciasAi-Appstore-Policy-Auditor-Opensource"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-primary to-blue-600 text-xs font-bold text-white hover:opacity-90 transition-opacity"
+            >
+              View source
+            </a>
           </div>
         </div>
       </header>
@@ -670,7 +707,7 @@ export default function AuditPage() {
               transition={{ duration: 0.5 }}
             >
               {/* Hero Section */}
-              <div className="text-center pt-12 md:pt-20 pb-10 md:pb-16">
+              <section id="about" aria-labelledby="hero-heading" className="text-center pt-12 md:pt-20 pb-10 md:pb-16">
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -681,7 +718,7 @@ export default function AuditPage() {
                   AI-Powered Compliance Auditing for iOS
                 </motion.div>
 
-                <motion.h1
+                <motion.h1 id="hero-heading"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
@@ -730,14 +767,14 @@ export default function AuditPage() {
                     <img src="/logos/openrouter.svg" alt="OpenRouter" className="h-7 w-7 opacity-60 hover:opacity-100 transition-opacity" draggable={false} />
                   </div>
                 </motion.div>
-              </div>
+              </section>
 
               {/* Main Audit Form */}
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className="max-w-4xl mx-auto"
+                id="how-it-works" className="max-w-4xl mx-auto"
               >
                 <div className="glassmorphism rounded-3xl p-6 md:p-8 border border-white/10 shadow-2xl shadow-primary/5">
                   <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
