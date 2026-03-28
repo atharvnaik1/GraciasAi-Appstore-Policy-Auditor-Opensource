@@ -13,6 +13,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Link from 'next/link';
 import { UserButton, SignedOut, SignedIn, useAuth, useClerk } from '@clerk/nextjs';
+import html2pdf from 'html2pdf.js';
 
 type AuditPhase = 'idle' | 'uploading' | 'analyzing' | 'complete' | 'error';
 
@@ -547,22 +548,37 @@ export default function AuditPage() {
 </body>
 </html>`;
 
-      const blob = new Blob([fullHtml], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const printWin = window.open(url, '_blank', 'width=900,height=700');
-      if (!printWin) {
-        // Fallback: direct download of HTML if popup blocked
+      // ✅ NEW: Use html2pdf.js for proper PDF generation
+      const element = reportRef.current || completeReportRef.current;
+      if (!element) {
+        throw new Error('Report element not found');
+      }
+
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: `gracias-ai-audit-report-${new Date().toISOString().slice(0, 10)}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      await html2pdf().set(opt).from(element).save();
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      // Fallback to old method if html2pdf fails
+      try {
+        const blob = new Blob([fullHtml], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = `gracias-ai-audit-report-${new Date().toISOString().slice(0, 10)}.html`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+      } catch (fallbackErr) {
+        setErrorMessage('Failed to export report. Please try the Markdown export instead.');
       }
-      setTimeout(() => URL.revokeObjectURL(url), 30000);
-    } catch (err) {
-      console.error('PDF export failed:', err);
-      setErrorMessage('Failed to export report. Please try the Markdown export instead.');
     }
   };
 
