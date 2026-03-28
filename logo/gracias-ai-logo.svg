@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Shield Background -->
+  <path d="M250 50 L400 100 L400 250 C400 350 250 450 250 450 C250 450 100 350 100 250 L100 100 Z" 
+        fill="url(#gradient)" opacity="0.1" stroke="url(#gradient)" stroke-width="3"/>
+  
+  <!-- AI Brain / Circuit -->
+  <circle cx="250" cy="200" r="60" fill="none" stroke="url(#gradient)" stroke-width="3">
+    <animate attributeName="opacity" values="0.6;1;0.6" dur="3s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Neural Network Nodes -->
+  <circle cx="250" cy="140" r="8" fill="#a855f7"/>
+  <circle cx="290" cy="180" r="6" fill="#3b82f6"/>
+  <circle cx="210" cy="180" r="6" fill="#3b82f6"/>
+  <circle cx="250" cy="220" r="10" fill="url(#gradient)"/>
+  
+  <!-- Connection Lines -->
+  <line x1="250" y1="140" x2="290" y2="180" stroke="#a855f7" stroke-width="2" opacity="0.6"/>
+  <line x1="250" y1="140" x2="210" y2="180" stroke="#a855f7" stroke-width="2" opacity="0.6"/>
+  <line x1="210" y1="180" x2="250" y2="220" stroke="#3b82f6" stroke-width="2" opacity="0.6"/>
+  <line x1="290" y1="180" x2="250" y2="220" stroke="#3b82f6" stroke-width="2" opacity="0.6"/>
+  
+  <!-- Apple/App Store Symbol (minimal) -->
+  <path d="M250 260 C230 260 220 280 220 300 C220 320 235 340 250 340 C265 340 280 320 280 300 C280 280 270 260 250 260 Z" 
+        fill="none" stroke="url(#gradient)" stroke-width="3"/>
+  
+  <!-- Checkmark (Compliance) -->
+  <path d="M235 300 L245 315 L265 285" fill="none" stroke="url(#gradient)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Text -->
+  <text x="250" y="400" font-family="system-ui, -apple-system, sans-serif" font-size="36" font-weight="700" 
+        fill="url(#gradient)" text-anchor="middle">Gracias AI</text>
+  <text x="250" y="425" font-family="system-ui, -apple-system, sans-serif" font-size="14" 
+        fill="#666" text-anchor="middle">App Store Auditor</text>
+</svg>
