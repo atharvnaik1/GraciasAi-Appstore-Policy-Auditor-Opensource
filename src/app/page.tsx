@@ -366,151 +366,197 @@ export default function AuditPage() {
     if (!reportContent) return;
     try {
       const { marked } = await import('marked');
+      const html2pdf = (await import('html2pdf.js')).default;
+
+      // Configure marked for GFM (tables, strikethrough, etc.)
       marked.setOptions({ gfm: true, breaks: true } as any);
+
       const bodyHtml = await marked.parse(reportContent);
       const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-      // ── Build PDF document element (hidden, used for html2canvas capture) ──
-      const pdfDoc = document.createElement('div');
-      pdfDoc.id = 'pdf-export-root';
-      pdfDoc.innerHTML = `
-        <style>
-          *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-          body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:13px;line-height:1.7;color:#1a1a2e;background:#fff;padding:32px 40px;max-width:900px;margin:0 auto}
-          .report-header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #7c3aed;padding-bottom:14px;margin-bottom:28px}
-          .brand{display:flex;align-items:center;gap:10px}
-          .brand-logo{background:linear-gradient(135deg,#7c3aed,#3b82f6);width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:900}
-          .brand-name{font-size:17px;font-weight:800;color:#000}
-          .brand-sub{font-size:9px;color:#777;letter-spacing:1.2px;text-transform:uppercase;margin-top:1px}
-          .meta{text-align:right;font-size:9px;color:#777}
-          .meta a{color:#7c3aed;text-decoration:none;font-weight:600}
-          h1{font-size:22px;font-weight:900;color:#0f0f1a;margin:24px 0 12px;border-bottom:1px solid #e5e5f0;padding-bottom:8px}
-          h2{font-size:17px;font-weight:800;color:#0f0f1a;margin:28px 0 10px;border-bottom:1px solid #eee;padding-bottom:6px}
-          h3{font-size:14px;font-weight:700;color:#1a1a2e;margin:18px 0 8px}
-          h4,h5,h6{font-size:13px;font-weight:700;color:#1a1a2e;margin:12px 0 6px}
-          p{margin:8px 0;color:#333}
-          ul{margin:8px 0 8px 20px}
-          ol{margin:8px 0 8px 4px;list-style:none;counter-reset:item}
-          ol li{counter-increment:item;display:flex;align-items:flex-start;gap:10px;margin:6px 0;padding:8px 12px;border:1px solid #ede9fe;border-radius:8px;background:#faf8ff}
-          ol li::before{content:counter(item);min-width:22px;height:22px;border-radius:50%;background:#7c3aed;color:#fff;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
-          ul li{margin:4px 0;color:#444}
-          li>p{margin:0}
-          strong{font-weight:700;color:#0f0f1a}
-          em{font-style:italic}
-          a{color:#7c3aed;text-decoration:none}
-          code{font-family:"SF Mono","Fira Code",Consolas,monospace;font-size:11px;background:#f3f0ff;color:#7c3aed;padding:2px 5px;border-radius:4px;border:1px solid #e9e5ff}
-          pre{background:#f8f8f8;border:1px solid #e5e5e5;border-radius:8px;padding:14px;overflow-x:auto;margin:12px 0}
-          pre code{background:none;border:none;padding:0;color:#333}
-          blockquote{border-left:3px solid #7c3aed;background:#faf8ff;margin:12px 0;padding:10px 16px;border-radius:0 8px 8px 0;color:#444}
-          blockquote p{margin:3px 0}
-          hr{border:none;border-top:1px solid #eee;margin:20px 0}
-          table{width:100%;border-collapse:collapse;margin:14px 0;font-size:12px;border-radius:8px;overflow:hidden;border:1px solid #e5e5f0}
-          thead{background:#f3f0ff}
-          th{padding:9px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#555;border-bottom:1px solid #e0ddf8}
-          td{padding:9px 12px;border-bottom:1px solid #f0eeff;color:#333;vertical-align:middle}
-          tr:last-child td{border-bottom:none}
-          tr:nth-child(even) td{background:#fdfcff}
-          .watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:90px;font-weight:900;color:rgba(124,58,237,0.04);pointer-events:none;white-space:nowrap;z-index:0}
-          .report-footer{margin-top:36px;padding-top:14px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:9px;color:#aaa}
-          /* Severity badge colours (used by JS below) */
-          .badge-critical{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca}
-          .badge-high{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;background:#ffedd5;color:#c2410c;border:1px solid #fed7aa}
-          .badge-medium{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;background:#fefce8;color:#a16207;border:1px solid #fde68a}
-          .badge-low{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
-          .badge-pass{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0}
-          .badge-warn{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;background:#fffbeb;color:#b45309;border:1px solid #fde68a}
-          .badge-fail{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
-          .badge-na{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;background:#f9fafb;color:#6b7280;border:1px solid #e5e7eb}
-        </style>
-        <div class="watermark">Gracias AI</div>
-        <div class="report-header">
-          <div class="brand">
-            <div class="brand-logo">G</div>
-            <div>
-              <div class="brand-name">Gracias AI</div>
-              <div class="brand-sub">App Store Compliance Auditor</div>
-            </div>
-          </div>
-          <div class="meta">
-            <div>${dateStr}</div>
-            <div style="margin-top:3px;">
-              <a href="https://gracias.sh">gracias.sh</a>&nbsp;|&nbsp;
-              <a href="mailto:business@gracias.sh">business@gracias.sh</a>
-            </div>
-          </div>
-        </div>
-        <div id="report-body">${bodyHtml}</div>
-        <div class="report-footer">
-          <span>Generated by Gracias AI &mdash; App Store Compliance Auditor</span>
-          <span>gracias.sh &nbsp;|&nbsp; business@gracias.sh</span>
-        </div>
-      `;
+      // Build a standalone HTML document for PDF generation
+      const fullHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gracias AI — App Store Compliance Report</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 13px;
+      line-height: 1.7;
+      color: #1a1a2e;
+      background: #fff;
+      padding: 32px 40px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .report-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #7c3aed;
+      padding-bottom: 14px;
+      margin-bottom: 28px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-logo {
+      background: linear-gradient(135deg, #7c3aed, #3b82f6);
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 15px; font-weight: 900;
+    }
+    .brand-name { font-size: 17px; font-weight: 800; color: #000; }
+    .brand-sub { font-size: 9px; color: #777; letter-spacing: 1.2px; text-transform: uppercase; margin-top: 1px; }
+    .meta { text-align: right; font-size: 9px; color: #777; }
+    .meta a { color: #7c3aed; text-decoration: none; font-weight: 600; }
+    h1 { font-size: 22px; font-weight: 900; color: #0f0f1a; margin: 24px 0 12px; border-bottom: 1px solid #e5e5f0; padding-bottom: 8px; }
+    h2 { font-size: 17px; font-weight: 800; color: #0f0f1a; margin: 28px 0 10px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+    h3 { font-size: 14px; font-weight: 700; color: #1a1a2e; margin: 18px 0 8px; }
+    h4, h5, h6 { font-size: 13px; font-weight: 700; color: #1a1a2e; margin: 12px 0 6px; }
+    p  { margin: 8px 0; color: #333; }
+    ul { margin: 8px 0 8px 20px; }
+    ol { margin: 8px 0 8px 4px; list-style: none; counter-reset: item; }
+    ol li { counter-increment: item; display: flex; align-items: flex-start; gap: 10px; margin: 6px 0;
+            padding: 8px 12px; border: 1px solid #ede9fe; border-radius: 8px; background: #faf8ff; }
+    ol li::before {
+      content: counter(item);
+      min-width: 22px; height: 22px; border-radius: 50%;
+      background: #7c3aed; color: #fff;
+      font-size: 10px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    ul li { margin: 4px 0; color: #444; }
+    li > p { margin: 0; }
+    strong { font-weight: 700; color: #0f0f1a; }
+    em { font-style: italic; }
+    a { color: #7c3aed; text-decoration: none; }
+    code {
+      font-family: "SF Mono", "Fira Code", Consolas, monospace;
+      font-size: 11px;
+      background: #f3f0ff;
+      color: #7c3aed;
+      padding: 2px 5px;
+      border-radius: 4px;
+      border: 1px solid #e9e5ff;
+    }
+    pre { background: #f8f8f8; border: 1px solid #e5e5e5; border-radius: 8px; padding: 14px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: none; border: none; padding: 0; color: #333; }
+    blockquote {
+      border-left: 3px solid #7c3aed;
+      background: #faf8ff;
+      margin: 12px 0;
+      padding: 10px 16px;
+      border-radius: 0 8px 8px 0;
+      color: #444;
+    }
+    blockquote p { margin: 3px 0; }
+    hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 12px; border-radius: 8px; overflow: hidden; border: 1px solid #e5e5f0; }
+    thead { background: #f3f0ff; }
+    th { padding: 9px 12px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #555; border-bottom: 1px solid #e0ddf8; }
+    td { padding: 9px 12px; border-bottom: 1px solid #f0eeff; color: #333; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background: #fdfcff; }
+    .watermark {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%) rotate(-30deg);
+      font-size: 90px; font-weight: 900;
+      color: rgba(124, 58, 237, 0.04);
+      pointer-events: none; white-space: nowrap; z-index: 0;
+    }
+    .report-footer {
+      margin-top: 36px; padding-top: 14px;
+      border-top: 1px solid #eee;
+      display: flex; justify-content: space-between;
+      font-size: 9px; color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <div class="watermark">Gracias AI</div>
+  <div class="report-header">
+    <div class="brand">
+      <div class="brand-logo">G</div>
+      <div>
+        <div class="brand-name">Gracias AI</div>
+        <div class="brand-sub">App Store Compliance Auditor</div>
+      </div>
+    </div>
+    <div class="meta">
+      <div>${dateStr}</div>
+      <div style="margin-top:3px;">
+        <a href="https://gracias.sh">gracias.sh</a> &nbsp;|&nbsp;
+        <a href="mailto:business@gracias.sh">business@gracias.sh</a>
+      </div>
+    </div>
+  </div>
+  <div id="pdf-body">
+    ${bodyHtml}
+  </div>
+  <div class="report-footer">
+    <span>Generated by Gracias AI &mdash; App Store Compliance Auditor</span>
+    <span>gracias.sh &nbsp;|&nbsp; business@gracias.sh</span>
+  </div>
+</body>
+</html>`;
 
-      // Inject severity badge classes (same logic as original JS, but using CSS classes)
-      const badgeMap: Record<string, string> = {
-        'CRITICAL': 'badge-critical',
-        'HIGH':     'badge-high',
-        'MEDIUM':   'badge-medium',
-        'LOW':      'badge-low',
-        'PASS':     'badge-pass',
-        'WARN':     'badge-warn',
-        'FAIL':     'badge-fail',
-        'N/A':      'badge-na',
-      };
-      const tds = pdfDoc.querySelectorAll('td');
-      tds.forEach((td) => {
-        const t = (td as HTMLElement).textContent?.trim() || '';
-        if (badgeMap[t]) {
-          (td as HTMLElement).innerHTML = `<span class="${badgeMap[t]}">${t}</span>`;
+      // Create an off-screen div with the report HTML
+      const container = document.createElement('div');
+      container.innerHTML = fullHtml;
+      container.style.position = 'fixed';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      container.style.width = '900px';
+      document.body.appendChild(container);
+
+      // Apply severity badge styles via DOM before PDF generation
+      const tdEls = container.querySelectorAll('td');
+      tdEls.forEach((td) => {
+        const t = td.textContent?.trim() || '';
+        const map: Record<string, string> = {
+          'CRITICAL': 'background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;',
+          'HIGH':     'background:#ffedd5;color:#c2410c;border:1px solid #fed7aa;',
+          'MEDIUM':   'background:#fefce8;color:#a16207;border:1px solid #fde68a;',
+          'LOW':      'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;',
+          'PASS':     'background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;',
+          'WARN':     'background:#fffbeb;color:#b45309;border:1px solid #fde68a;',
+          'FAIL':     'background:#fef2f2;color:#dc2626;border:1px solid #fecaca;',
+          'N/A':      'background:#f9fafb;color:#6b7280;border:1px solid #e5e7eb;',
+        };
+        if (map[t]) {
+          td.innerHTML = `<span style="display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;${map[t]}">${t}</span>`;
         }
       });
 
-      // ── Attach to DOM (hidden), capture with html2canvas, then remove ──
-      pdfDoc.style.position = 'fixed';
-      pdfDoc.style.top = '-9999px';
-      pdfDoc.style.left = '-9999px';
-      pdfDoc.style.width = '900px';
-      pdfDoc.style.background = '#fff';
-      pdfDoc.style.zIndex = '-1';
-      document.body.appendChild(pdfDoc);
+      const filename = `gracias-ai-audit-report-${new Date().toISOString().slice(0, 10)}.pdf`;
 
-      // Wait a tick for the DOM to paint
-      await new Promise<void>((resolve) => { setTimeout(resolve, 100); });
+      await html2pdf()
+        .set({
+          margin: 10,
+          filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            letterRendering: true,
+            logging: false,
+          },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
 
-      const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(pdfDoc as HTMLElement, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        width: 900,
-        windowWidth: 900,
-      });
+        })
+        .from(container)
+        .save();
 
-      document.body.removeChild(pdfDoc);
-
-      // ── Build PDF with jsPDF ──
-      const jsPDFModule = await import('jspdf');
-      const { jsPDF } = jsPDFModule;
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const pdfWidth = canvas.width;
-      const pdfHeight = canvas.height;
-      // A4 in points: 595.28 x 841.89 pts; use 2x for high-DPI
-      const a4W = 595.28;
-      const a4H = 841.89;
-      const ratio = Math.min(a4W / pdfWidth, a4H / pdfHeight);
-      const imgW = pdfWidth * ratio;
-      const imgH = pdfHeight * ratio;
-
-      const pdf = new jsPDF({ orientation: imgW > imgH ? 'landscape' : 'portrait', unit: 'pt', format: 'a4' });
-      pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
-
-      const filename = `gracias-ai-appstore-audit-${new Date().toISOString().slice(0, 10)}.pdf`;
-      pdf.save(filename);
+      // Cleanup
+      document.body.removeChild(container);
     } catch (err) {
       console.error('PDF export failed:', err);
-      // Fallback: offer Markdown download on error
-      setErrorMessage('PDF export failed. Please use the "Download Report" button for Markdown format instead.');
+      setErrorMessage('Failed to export PDF. Please try the Markdown export instead.');
     }
   };
 
