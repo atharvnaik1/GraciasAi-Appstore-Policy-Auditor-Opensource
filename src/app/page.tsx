@@ -55,6 +55,7 @@ const selectStyle = {
 export default function AuditPage() {
   const [file, setFile] = useState<File | null>(null);
   const [claudeApiKey, setClaudeApiKey] = useState('');
+  const [platform, setPlatform] = useState<'ios' | 'android'>('ios');
   const [provider, setProvider] = useState('anthropic');
   const [model, setModel] = useState('claude-sonnet-4-20250514');
   const [context, setContext] = useState('');
@@ -200,8 +201,9 @@ export default function AuditPage() {
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile) {
       const ext = droppedFile.name.split('.').pop()?.toLowerCase();
-      if (ext !== 'ipa') {
-        setErrorMessage('Please upload an .ipa file');
+      const validExts = platform === 'android' ? ['apk', 'aab'] : ['ipa'];
+      if (!ext || !validExts.includes(ext)) {
+        setErrorMessage(`Please upload a ${platform === 'android' ? '.apk or .aab' : '.ipa'} file`);
       } else if (droppedFile.size > 150 * 1024 * 1024) {
         setErrorMessage('File exceeds maximum size of 150MB');
       } else {
@@ -215,8 +217,9 @@ export default function AuditPage() {
     const selected = e.target.files?.[0];
     if (selected) {
       const ext = selected.name.split('.').pop()?.toLowerCase();
-      if (ext !== 'ipa') {
-        setErrorMessage('Please upload an .ipa file');
+      const validExts = platform === 'android' ? ['apk', 'aab'] : ['ipa'];
+      if (!ext || !validExts.includes(ext)) {
+        setErrorMessage(`Please upload a ${platform === 'android' ? '.apk or .aab' : '.ipa'} file`);
         e.target.value = '';
         return;
       }
@@ -275,6 +278,7 @@ export default function AuditPage() {
         formData.append('provider', provider);
         formData.append('model', model);
         formData.append('context', context);
+        formData.append('platform', platform);
         response = await fetch('/api/audit', { method: 'POST', body: formData });
       } else {
         // Fallback: upload + audit in one go
@@ -285,6 +289,7 @@ export default function AuditPage() {
         formData.append('provider', provider);
         formData.append('model', model);
         formData.append('context', context);
+        formData.append('platform', platform);
         response = await fetch('/api/audit', { method: 'POST', body: formData });
         setPhase('analyzing');
       }
@@ -759,7 +764,7 @@ export default function AuditPage() {
                         <input
                           ref={fileInputRef}
                           type="file"
-                          accept=".ipa"
+                          accept={platform === 'android' ? '.apk,.aab' : '.ipa'}
                           onChange={handleFileSelect}
                           className="hidden"
                         />
@@ -822,10 +827,10 @@ export default function AuditPage() {
                                 <Upload className="w-7 h-7 text-muted-foreground group-hover:text-primary transition-colors" />
                               </div>
                               <p className="text-white font-semibold text-sm md:text-base mb-1">
-                                Drop your .ipa file here
+                                Drop your {platform === 'android' ? '.apk/.aab' : '.ipa'} file here
                               </p>
                               <p className="text-muted-foreground text-xs mb-3">
-                                <span className="text-primary">.ipa</span> files up to 150MB
+                                <span className="text-primary">{platform === 'android' ? '.apk/.aab' : '.ipa'}</span> files up to 150MB
                               </p>
                               <span className="text-[10px] text-muted-foreground/60 font-medium">
                                 .swift, .m, .plist, .entitlements, .storyboard &amp; more
@@ -838,6 +843,28 @@ export default function AuditPage() {
 
                     {/* Config Area — spans 2 cols */}
                     <div className="lg:col-span-2 flex flex-col gap-4">
+                      {/* Platform Selection */}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                          <span className="text-xs font-semibold text-white">Platform</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setPlatform('ios')}
+                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${platform === 'ios' ? 'bg-primary/20 border border-primary/50 text-white' : 'bg-white/5 border border-white/10 text-white/60 hover:bg-white/[0.08]'}`}
+                          >
+                            <Apple className="w-3.5 h-3.5" /> iOS (App Store)
+                          </button>
+                          <button
+                            onClick={() => setPlatform('android')}
+                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${platform === 'android' ? 'bg-primary/20 border border-primary/50 text-white' : 'bg-white/5 border border-white/10 text-white/60 hover:bg-white/[0.08]'}`}
+                          >
+                            <Cpu className="w-3.5 h-3.5" /> Android (Play Store)
+                          </button>
+                        </div>
+                      </div>
+
                       {/* Provider + Model */}
                       <div className="space-y-3">
                         <div className="flex items-center gap-2 mb-1">
