@@ -200,8 +200,8 @@ export default function AuditPage() {
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile) {
       const ext = droppedFile.name.split('.').pop()?.toLowerCase();
-      if (ext !== 'ipa') {
-        setErrorMessage('Please upload an .ipa file');
+      if (ext !== 'ipa' && ext !== 'apk') {
+        setErrorMessage('Please upload an .ipa (iOS) or .apk (Android) file');
       } else if (droppedFile.size > 150 * 1024 * 1024) {
         setErrorMessage('File exceeds maximum size of 150MB');
       } else {
@@ -215,8 +215,8 @@ export default function AuditPage() {
     const selected = e.target.files?.[0];
     if (selected) {
       const ext = selected.name.split('.').pop()?.toLowerCase();
-      if (ext !== 'ipa') {
-        setErrorMessage('Please upload an .ipa file');
+      if (ext !== 'ipa' && ext !== 'apk') {
+        setErrorMessage('Please upload an .ipa (iOS) or .apk (Android) file');
         e.target.value = '';
         return;
       }
@@ -365,6 +365,8 @@ export default function AuditPage() {
   const handleExportPdf = async () => {
     if (!reportContent) return;
     try {
+      // Dynamically import html2pdf.js
+      const html2pdf = (await import('html2pdf.js')).default;
       const { marked } = await import('marked');
 
       // Configure marked for GFM (tables, strikethrough, etc.)
@@ -373,196 +375,111 @@ export default function AuditPage() {
       const bodyHtml = await marked.parse(reportContent);
       const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-      const fullHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gracias AI — App Store Compliance Report</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      font-size: 13px;
-      line-height: 1.7;
-      color: #1a1a2e;
-      background: #fff;
-      padding: 32px 40px;
-      max-width: 900px;
-      margin: 0 auto;
-    }
+      // Create a container element for PDF generation
+      const container = document.createElement('div');
+      container.innerHTML = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; line-height: 1.6; color: #1a1a2e; padding: 20px; max-width: 800px; margin: 0 auto; background: #fff;">
+          <!-- Header -->
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #7c3aed; padding-bottom: 12px; margin-bottom: 24px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="background: linear-gradient(135deg, #7c3aed, #3b82f6); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; font-weight: 900;">G</div>
+              <div>
+                <div style="font-size: 16px; font-weight: 800; color: #000;">Gracias AI</div>
+                <div style="font-size: 9px; color: #777; letter-spacing: 1.2px; text-transform: uppercase;">App Store Compliance Auditor</div>
+              </div>
+            </div>
+            <div style="text-align: right; font-size: 10px; color: #777;">
+              <div>${dateStr}</div>
+              <div style="margin-top: 2px;">gracias.sh | business@gracias.sh</div>
+            </div>
+          </div>
 
-    /* ── Header ─────────────────────────────────── */
-    .report-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 2px solid #7c3aed;
-      padding-bottom: 14px;
-      margin-bottom: 28px;
-    }
-    .brand { display: flex; align-items: center; gap: 10px; }
-    .brand-logo {
-      background: linear-gradient(135deg, #7c3aed, #3b82f6);
-      width: 32px; height: 32px;
-      border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      color: #fff; font-size: 15px; font-weight: 900;
-    }
-    .brand-name { font-size: 17px; font-weight: 800; color: #000; }
-    .brand-sub { font-size: 9px; color: #777; letter-spacing: 1.2px; text-transform: uppercase; margin-top: 1px; }
-    .meta { text-align: right; font-size: 9px; color: #777; }
-    .meta a { color: #7c3aed; text-decoration: none; font-weight: 600; }
+          <!-- Report Body -->
+          <div id="report-body">${bodyHtml}</div>
 
-    /* ── Typography ─────────────────────────────── */
-    h1 { font-size: 22px; font-weight: 900; color: #0f0f1a; margin: 24px 0 12px; border-bottom: 1px solid #e5e5f0; padding-bottom: 8px; }
-    h2 { font-size: 17px; font-weight: 800; color: #0f0f1a; margin: 28px 0 10px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
-    h3 { font-size: 14px; font-weight: 700; color: #1a1a2e; margin: 18px 0 8px; }
-    h4, h5, h6 { font-size: 13px; font-weight: 700; color: #1a1a2e; margin: 12px 0 6px; }
-    p  { margin: 8px 0; color: #333; }
-    ul { margin: 8px 0 8px 20px; }
-    ol { margin: 8px 0 8px 4px; list-style: none; counter-reset: item; }
-    ol li { counter-increment: item; display: flex; align-items: flex-start; gap: 10px; margin: 6px 0;
-            padding: 8px 12px; border: 1px solid #ede9fe; border-radius: 8px; background: #faf8ff; }
-    ol li::before {
-      content: counter(item);
-      min-width: 22px; height: 22px; border-radius: 50%;
-      background: #7c3aed; color: #fff;
-      font-size: 10px; font-weight: 900;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; margin-top: 1px;
-    }
-    ul li { margin: 4px 0; color: #444; }
-    li > p { margin: 0; }
-    strong { font-weight: 700; color: #0f0f1a; }
-    em { font-style: italic; }
-    a { color: #7c3aed; text-decoration: none; }
-    code {
-      font-family: "SF Mono", "Fira Code", Consolas, monospace;
-      font-size: 11px;
-      background: #f3f0ff;
-      color: #7c3aed;
-      padding: 2px 5px;
-      border-radius: 4px;
-      border: 1px solid #e9e5ff;
-    }
-    pre { background: #f8f8f8; border: 1px solid #e5e5e5; border-radius: 8px; padding: 14px; overflow-x: auto; margin: 12px 0; }
-    pre code { background: none; border: none; padding: 0; color: #333; }
-    blockquote {
-      border-left: 3px solid #7c3aed;
-      background: #faf8ff;
-      margin: 12px 0;
-      padding: 10px 16px;
-      border-radius: 0 8px 8px 0;
-      color: #444;
-    }
-    blockquote p { margin: 3px 0; }
-    hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+          <!-- Footer -->
+          <div style="margin-top: 32px; padding-top: 12px; border-top: 1px solid #eee; display: flex; justify-content: space-between; font-size: 9px; color: #aaa;">
+            <span>Generated by Gracias AI — App Store Compliance Auditor</span>
+            <span>gracias.sh | business@gracias.sh</span>
+          </div>
+        </div>
+      `;
 
-    /* ── Tables ─────────────────────────────────── */
-    table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 12px; border-radius: 8px; overflow: hidden; border: 1px solid #e5e5f0; }
-    thead { background: #f3f0ff; }
-    th { padding: 9px 12px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #555; border-bottom: 1px solid #e0ddf8; }
-    td { padding: 9px 12px; border-bottom: 1px solid #f0eeff; color: #333; vertical-align: middle; }
-    tr:last-child td { border-bottom: none; }
-    tr:nth-child(even) td { background: #fdfcff; }
+      // Style severity badges within the container
+      container.querySelectorAll('td').forEach((td: Element) => {
+        const text = td.textContent?.trim() || '';
+        const severityStyles: Record<string, string> = {
+          'CRITICAL': 'background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;',
+          'HIGH': 'background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa;',
+          'MEDIUM': 'background: #fefce8; color: #a16207; border: 1px solid #fde68a;',
+          'LOW': 'background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;',
+          'PASS': 'background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0;',
+          'WARN': 'background: #fffbeb; color: #b45309; border: 1px solid #fde68a;',
+          'FAIL': 'background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;',
+          'N/A': 'background: #f9fafb; color: #6b7280; border: 1px solid #e5e7eb;',
+        };
+        if (severityStyles[text]) {
+          const span = document.createElement('span');
+          span.style.cssText = `display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 9px; font-weight: 700; ${severityStyles[text]}`;
+          span.textContent = text;
+          td.innerHTML = '';
+          td.appendChild(span);
+        }
+      });
 
-    /* ── Severity Badges ────────────────────────── */
-    td:has(span.badge) { padding: 7px 12px; }
-    /* Inject badges via JS below */
+      // Apply inline styles for proper PDF rendering
+      const styleElement = document.createElement('style');
+      styleElement.textContent = `
+        h1 { font-size: 20px; font-weight: 900; color: #0f0f1a; margin: 20px 0 10px; border-bottom: 1px solid #e5e5f0; padding-bottom: 8px; }
+        h2 { font-size: 16px; font-weight: 800; color: #0f0f1a; margin: 24px 0 10px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+        h3 { font-size: 13px; font-weight: 700; color: #1a1a2e; margin: 16px 0 8px; }
+        h4, h5, h6 { font-size: 12px; font-weight: 700; color: #1a1a2e; margin: 12px 0 6px; }
+        p { margin: 8px 0; color: #333; }
+        ul { margin: 8px 0 8px 20px; }
+        ol { margin: 8px 0 8px 4px; padding-left: 0; }
+        ol li { margin: 6px 0; padding: 6px 10px; border: 1px solid #ede9fe; border-radius: 6px; background: #faf8ff; }
+        ul li { margin: 4px 0; color: #444; }
+        strong { font-weight: 700; color: #0f0f1a; }
+        a { color: #7c3aed; text-decoration: none; }
+        code { font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 10px; background: #f3f0ff; color: #7c3aed; padding: 2px 5px; border-radius: 4px; border: 1px solid #e9e5ff; }
+        pre { background: #f8f8f8; border: 1px solid #e5e5e5; border-radius: 6px; padding: 12px; overflow-x: auto; margin: 12px 0; }
+        pre code { background: none; border: none; padding: 0; color: #333; }
+        blockquote { border-left: 3px solid #7c3aed; background: #faf8ff; margin: 12px 0; padding: 10px 16px; border-radius: 0 6px 6px 0; color: #444; }
+        table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 11px; border-radius: 6px; overflow: hidden; border: 1px solid #e5e5f0; }
+        thead { background: #f3f0ff; }
+        th { padding: 8px 10px; text-align: left; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #555; border-bottom: 1px solid #e0ddf8; }
+        td { padding: 8px 10px; border-bottom: 1px solid #f0eeff; color: #333; vertical-align: middle; }
+        tr:last-child td { border-bottom: none; }
+        tr:nth-child(even) td { background: #fdfcff; }
+        hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+      `;
+      container.insertBefore(styleElement, container.firstChild);
 
-    /* ── Watermark ──────────────────────────────── */
-    .watermark {
-      position: fixed; top: 50%; left: 50%;
-      transform: translate(-50%, -50%) rotate(-30deg);
-      font-size: 90px; font-weight: 900;
-      color: rgba(124, 58, 237, 0.04);
-      pointer-events: none; white-space: nowrap; z-index: 0;
-    }
-
-    /* ── Footer ─────────────────────────────────── */
-    .report-footer {
-      margin-top: 36px; padding-top: 14px;
-      border-top: 1px solid #eee;
-      display: flex; justify-content: space-between;
-      font-size: 9px; color: #aaa;
-    }
-
-    @media print {
-      body { padding: 20px 24px; }
-      .no-print { display: none !important; }
-      @page { margin: 16mm 14mm; size: A4; }
-    }
-  </style>
-</head>
-<body>
-  <div class="watermark">Gracias AI</div>
-
-  <div class="report-header">
-    <div class="brand">
-      <div class="brand-logo">G</div>
-      <div>
-        <div class="brand-name">Gracias AI</div>
-        <div class="brand-sub">App Store Compliance Auditor</div>
-      </div>
-    </div>
-    <div class="meta">
-      <div>${dateStr}</div>
-      <div style="margin-top:3px;">
-        <a href="https://gracias.sh">gracias.sh</a> &nbsp;|&nbsp;
-        <a href="mailto:business@gracias.sh">business@gracias.sh</a>
-      </div>
-    </div>
-  </div>
-
-  <div id="report-body">
-    ${bodyHtml}
-  </div>
-
-  <div class="report-footer">
-    <span>Generated by Gracias AI &mdash; App Store Compliance Auditor</span>
-    <span>gracias.sh &nbsp;|&nbsp; business@gracias.sh</span>
-  </div>
-
-  <script>
-    // Colour-code severity cells
-    document.querySelectorAll('td').forEach(function(td) {
-      var t = td.textContent.trim();
-      var map = {
-        'CRITICAL': 'background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;',
-        'HIGH':     'background:#ffedd5;color:#c2410c;border:1px solid #fed7aa;',
-        'MEDIUM':   'background:#fefce8;color:#a16207;border:1px solid #fde68a;',
-        'LOW':      'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;',
-        'PASS':     'background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;',
-        'WARN':     'background:#fffbeb;color:#b45309;border:1px solid #fde68a;',
-        'FAIL':     'background:#fef2f2;color:#dc2626;border:1px solid #fecaca;',
-        'N/A':      'background:#f9fafb;color:#6b7280;border:1px solid #e5e7eb;',
+      // Configure html2pdf options
+      const opt = {
+        margin: [15, 15, 15, 15] as [number, number, number, number],
+        filename: `gracias-ai-compliance-report-${new Date().toISOString().slice(0, 10)}.pdf`,
+        image: { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          letterRendering: true,
+          logging: false,
+        },
+        jsPDF: {
+          unit: 'mm',
+          format: 'a4',
+          orientation: 'portrait' as const,
+        },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
       };
-      if (map[t]) {
-        td.innerHTML = '<span style="display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;' + map[t] + '">' + t + '</span>';
-      }
-    });
-    window.onload = function() { window.print(); };
-  </script>
-</body>
-</html>`;
 
-      const blob = new Blob([fullHtml], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const printWin = window.open(url, '_blank', 'width=900,height=700');
-      if (!printWin) {
-        // Fallback: direct download of HTML if popup blocked
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `gracias-ai-audit-report-${new Date().toISOString().slice(0, 10)}.html`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      // Generate and download PDF
+      await html2pdf().set(opt).from(container).save();
+
     } catch (err) {
       console.error('PDF export failed:', err);
-      setErrorMessage('Failed to export report. Please try the Markdown export instead.');
+      setErrorMessage('Failed to export PDF. Please try the Markdown export instead.');
     }
   };
 
@@ -678,7 +595,7 @@ export default function AuditPage() {
                   className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-xs font-semibold text-primary mb-6"
                 >
                   <Zap className="w-3.5 h-3.5" />
-                  AI-Powered Compliance Auditing for iOS
+                  AI-Powered Compliance Auditing for iOS & Android
                 </motion.div>
 
                 <motion.h1
@@ -687,10 +604,10 @@ export default function AuditPage() {
                   transition={{ delay: 0.2 }}
                   className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight mb-6 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]"
                 >
-                  <span className="text-white">Audit Your iOS App</span>
+                  <span className="text-white">Audit Your App</span>
                   <br />
                   <span className="text-white">Before </span>
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#a78bfa] via-[#818cf8] to-[#60a5fa] [-webkit-text-stroke:0.5px_rgba(255,255,255,0.1)]">Apple Does</span>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#a78bfa] via-[#818cf8] to-[#60a5fa] [-webkit-text-stroke:0.5px_rgba(255,255,255,0.1)]">They Do</span>
                 </motion.h1>
 
                 <motion.p
@@ -699,7 +616,7 @@ export default function AuditPage() {
                   transition={{ delay: 0.3 }}
                   className="text-muted-foreground text-base md:text-xl max-w-2xl mx-auto leading-relaxed mb-4"
                 >
-                  Upload your iOS project and get a comprehensive audit against Apple&apos;s Review Guidelines.
+                  Upload your iOS or Android app and get a comprehensive audit against Apple App Store and Google Play Store guidelines.
                   Catch rejection risks before you submit.
                 </motion.p>
 
@@ -759,7 +676,7 @@ export default function AuditPage() {
                         <input
                           ref={fileInputRef}
                           type="file"
-                          accept=".ipa"
+                          accept=".ipa,.apk"
                           onChange={handleFileSelect}
                           className="hidden"
                         />
@@ -822,13 +739,13 @@ export default function AuditPage() {
                                 <Upload className="w-7 h-7 text-muted-foreground group-hover:text-primary transition-colors" />
                               </div>
                               <p className="text-white font-semibold text-sm md:text-base mb-1">
-                                Drop your .ipa file here
+                                Drop your app bundle here
                               </p>
                               <p className="text-muted-foreground text-xs mb-3">
-                                <span className="text-primary">.ipa</span> files up to 150MB
+                                <span className="text-primary">.ipa</span> (iOS) or <span className="text-primary">.apk</span> (Android) up to 150MB
                               </p>
                               <span className="text-[10px] text-muted-foreground/60 font-medium">
-                                .swift, .m, .plist, .entitlements, .storyboard &amp; more
+                                iOS: .swift, .m, .plist, .entitlements | Android: .kt, .java, .xml, .gradle
                               </span>
                             </div>
                           )}
@@ -964,7 +881,7 @@ export default function AuditPage() {
                       icon: <ShieldCheck className="w-5 h-5 text-primary" />,
                       iconBg: 'bg-primary/10 border-primary/20',
                       title: 'Full Guidelines Coverage',
-                      desc: 'Checks all 6 major App Store Review Guideline categories: Safety, Performance, Business, Design, Legal & Privacy, and Technical.',
+                      desc: 'Checks all major policy categories for iOS (App Store Review Guidelines) and Android (Play Developer Policies).',
                     },
                     {
                       icon: <Zap className="w-5 h-5 text-amber-400" />,
@@ -1027,15 +944,15 @@ export default function AuditPage() {
                     {
                       step: '01',
                       color: 'from-primary to-purple-600',
-                      title: 'Upload Your Project',
-                      desc: 'Drop your .ipa file and we extract all relevant iOS source files while skipping compiled binaries and build artifacts.',
+                      title: 'Upload Your App',
+                      desc: 'Drop your .ipa (iOS) or .apk (Android) file. We extract all relevant source files while skipping compiled binaries.',
                       icon: <Upload className="w-5 h-5" />,
                     },
                     {
                       step: '02',
                       color: 'from-blue-500 to-cyan-500',
                       title: 'AI Analyzes Your Code',
-                      desc: 'Your code is sent directly to your chosen AI provider using your API key. We act as a secure passthrough, nothing stored.',
+                      desc: 'Your code is sent directly to your chosen AI provider. Platform-specific policies are applied (Apple App Store or Google Play Store).',
                       icon: <Cpu className="w-5 h-5" />,
                     },
                     {
