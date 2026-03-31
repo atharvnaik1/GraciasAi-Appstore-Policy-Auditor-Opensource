@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 80" width="360" height="80">
+  <defs>
+    <!-- Primary gradient: Purple to Blue -->
+    <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    
+    <!-- Subtle inner glow -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Logomark (scaled) -->
+  <g transform="translate(0, 4) scale(0.72)">
+    <!-- Shield body with iOS-style rounded corners -->
+    <path d="M64 8 
+             C64 8 20 8 20 8
+             C14 8 8 14 8 20
+             L8 64
+             C8 85 20 100 64 118
+             C108 100 120 85 120 64
+             L120 20
+             C120 14 114 8 108 8
+             C108 8 64 8 64 8Z"
+          fill="url(#brandGradient)"
+          filter="url(#glow)"/>
+    
+    <!-- AI Brain circuit pattern -->
+    <g fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.95">
+      <!-- Central node -->
+      <circle cx="64" cy="58" r="6" fill="#ffffff" stroke="none"/>
+      
+      <!-- Circuit connections -->
+      <path d="M58 52 L42 36"/>
+      <circle cx="42" cy="36" r="4" fill="#ffffff" stroke="none"/>
+      <path d="M42 36 L32 44"/>
+      <circle cx="32" cy="44" r="3" fill="#ffffff" stroke="none"/>
+      
+      <path d="M70 52 L86 36"/>
+      <circle cx="86" cy="36" r="4" fill="#ffffff" stroke="none"/>
+      <path d="M86 36 L96 44"/>
+      <circle cx="96" cy="44" r="3" fill="#ffffff" stroke="none"/>
+      
+      <path d="M58 64 L46 76"/>
+      <circle cx="46" cy="76" r="3" fill="#ffffff" stroke="none"/>
+      <path d="M70 64 L82 76"/>
+      <circle cx="82" cy="76" r="3" fill="#ffffff" stroke="none"/>
+      
+      <path d="M64 52 L64 40"/>
+      <circle cx="64" cy="40" r="3" fill="#ffffff" stroke="none"/>
+    </g>
+    
+    <!-- Checkmark accent -->
+    <path d="M52 88 L60 96 L76 80"
+          fill="none"
+          stroke="#ffffff"
+          stroke-width="3"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          opacity="0.9"/>
+  </g>
+  
+  <!-- Wordmark: "Gracias AI" -->
+  <text x="105" y="52" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="32" font-weight="600" fill="#a855f7">
+    <tspan fill="url(#brandGradient)">Gracias</tspan>
+  </text>
+  <text x="205" y="52" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="32" font-weight="700" fill="#3b82f6">
+    AI
+  </text>
+</svg>
