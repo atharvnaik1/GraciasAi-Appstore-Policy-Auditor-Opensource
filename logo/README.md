@@ -1,68 +1,97 @@
-# Gracias AI Logo Design
+# Gracias AI App Store Auditor - Logo Design
 
-This directory contains the logo design for Gracias AI App Store Auditor, submitted for bounty issue #2.
+## Overview
+A modern, clean logo design for **Gracias AI App Store Auditor** - an open-source, AI-powered iOS App Store compliance auditor. This logo represents:
+- **AI / Intelligence** - Neural network patterns and circuit elements
+- **iOS / App Store** - Subtle apple leaf silhouette
+- **Security / Compliance** - Shield shape and checkmark
+- **Trust / Shield** - Protective shield with zero-trust architecture concept
 
 ## Design Concept
+The logo combines multiple elements to represent Gracias AI's core values:
 
-The logo combines four key elements representing the product's core values:
-
-1. **AI / Intelligence** - Neural network pattern and circuit nodes
-2. **iOS / App Store** - Apple leaf silhouette
-3. **Security / Compliance** - Shield shape and checkmark
-4. **Trust / Transparency** - Clean, modern design with brand colors
-
-## Files Included
-
-- `logomark.svg` - Icon only (light background)
-- `logomark-dark.svg` - Icon only (dark background)
-- `wordmark.svg` - Icon + "Gracias AI App Store Auditor" text (light background)
-- `wordmark-dark.svg` - Icon + text (dark background)
+1. **Shield Shape** - Represents security, protection, and compliance auditing
+2. **Neural Network Pattern** - Symbolizes AI-powered intelligence and LLMs
+3. **Apple Leaf** - Subtle reference to iOS/Apple ecosystem
+4. **Checkmark** - Indicates compliance approval and auditing success
+5. **Circuit Nodes** - Represents technology and connectivity
 
 ## Color Palette
 
 | Color | Hex | Usage |
 |-------|-----|-------|
-| Purple | `#a855f7` | Primary brand color (shield gradient) |
-| Blue | `#3b82f6` | Secondary color (circuit nodes, leaf) |
-| White | `#ffffff` | Text and highlights on dark backgrounds |
-| Dark Gray | `#1f2937` | Dark background variant |
+| Purple | `#a855f7` | Primary brand color (intelligence) |
+| Blue | `#3b82f6` | Secondary color (trust, security) |
+| White | `#ffffff` | Text/icons on dark backgrounds |
+| Dark Gray | `#1e293b` | Dark background variant |
+| Light Gray | `#f8fafc` | Light background variant |
+
+## Files Included
+
+### Logomark (Icon Only)
+- `logomark.svg` - Primary logo icon (200×200)
+- `logomark_dark.svg` - Dark background variant
+
+### Wordmark (Icon + Text)
+- `wordmark.svg` - Full logo with "Gracias AI" text
+- `wordmark_dark.svg` - Dark background variant
+
+### Preview Images
+- `preview.png` - Combined preview of all variants
+- `color_palette.png` - Color scheme reference
+
+## Design Elements Explained
+
+### 1. Shield + AI Integration
+The shield shape contains neural network patterns, representing how Gracias AI uses AI to protect and audit iOS apps. The gradient from purple (#a855f7) to blue (#3b82f6) creates a modern, tech-forward look.
+
+### 2. Apple Ecosystem Reference
+A subtle apple leaf in blue (#3b82f6) is integrated into the shield, representing the iOS/App Store focus without being overly literal.
+
+### 3. Compliance & Trust
+The checkmark symbolizes successful compliance audits, while the shield represents the protective, zero-trust architecture of the open-source auditor.
+
+### 4. Scalability & Versatility
+All files are vector SVG format, ensuring perfect scalability for:
+- App icons and favicons
+- Website headers and branding
+- Marketing materials
+- Documentation and presentations
+- Dark/light mode compatibility
 
 ## Usage Guidelines
 
-- Use `logomark` for app icons, favicons, and small spaces
-- Use `wordmark` for headers, marketing materials, and documentation
-- Light variants are for white/light backgrounds
-- Dark variants are for dark backgrounds
+### Light Backgrounds
+Use `logomark.svg` and `wordmark.svg` on white or light-colored backgrounds.
 
-## Design Elements
+### Dark Backgrounds
+Use `logomark_dark.svg` and `wordmark_dark.svg` on dark-colored backgrounds.
 
-1. **Shield Base** - Represents security and protection
-2. **Neural Network Pattern** - Symbolizes AI intelligence
-3. **Apple Leaf** - Represents iOS/Apple ecosystem
-4. **Checkmark** - Indicates compliance and approval
-5. **Circuit Nodes** - Symbolizes technology and connections
+### Minimum Size
+- **Logomark**: 24×24 pixels (app icon)
+- **Wordmark**: 150×45 pixels (header/hero section)
 
-## Technical Details
+### Spacing
+Maintain clear space equal to the height of the "A" in "AI" around all logo variations.
 
-- All files are in SVG format (vector)
-- Responsive and scalable without quality loss
-- Optimized for web and print use
-- Follows Apple Design guidelines for modern aesthetics
+## Apple Design Thinking Principles
+This logo follows Apple's design principles:
 
-## Preview
+1. **Clarity** - Clear, readable typography and recognizable iconography
+2. **Deference** - Content-first approach with minimal ornamentation
+3. **Depth** - Layered visual hierarchy with meaningful gradients
+4. **Consistency** - Coherent design language across all variants
 
-### Logomark (Light)
-![Logomark Light](logomark.svg)
+## Technical Specifications
+- **Format**: SVG (Scalable Vector Graphics)
+- **Created**: Adobe Illustrator (compatible with all vector editors)
+- **Font**: Inter (Google Fonts, open source)
+- **License**: Original work created for this bounty submission. The design is provided under an open-source friendly license suitable for Gracias AI's project.
 
-### Wordmark (Light)
-![Wordmark Light](wordmark.svg)
+## Design Rationale
+The design balances modern tech aesthetics with the trust and security required for compliance auditing. The purple-blue gradient represents the intersection of AI (purple) and trust (blue), while the shield-checkmark combination clearly communicates the product's purpose.
 
-### Logomark (Dark)
-![Logomark Dark](logomark-dark.svg)
+## Submission for Bounty
+This logo design is submitted for the **Bounty: Design a Logo for Gracias AI App Store Auditor** (Issue #2).
 
-### Wordmark (Dark)
-![Wordmark Dark](wordmark-dark.svg)
-
-## License
-
-This logo design is submitted under the terms of the bounty and becomes property of Gracias AI upon acceptance and payment of the bounty reward.
+**First accepted submission wins the bounty.**

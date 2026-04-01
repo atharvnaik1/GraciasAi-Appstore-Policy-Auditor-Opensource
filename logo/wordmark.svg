@@ -8,37 +8,60 @@
       <stop offset="0%" stop-color="#3b82f6" />
       <stop offset="100%" stop-color="#1e40af" />
     </linearGradient>
+    
+    <!-- Gracias AI 字体样式 -->
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;700&display=swap');
-      .logo-text {
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@600;700&display=swap');
+      .gracias-text {
         font-family: 'Inter', sans-serif;
         font-weight: 700;
-        font-size: 36px;
-        fill: #111827;
+        font-size: 42px;
+        letter-spacing: -0.5px;
       }
-      .logo-subtext {
+      .ai-text {
         font-family: 'Inter', sans-serif;
-        font-weight: 500;
-        font-size: 20px;
-        fill: #6b7280;
+        font-weight: 600;
+        font-size: 36px;
+        letter-spacing: -0.3px;
       }
     </style>
   </defs>
   
-  <!-- Logomark -->
-  <g transform="translate(10, 10) scale(0.5)">
-    <path d="M100 30 L180 60 L180 140 L100 170 L20 140 L20 60 Z" fill="url(#purpleGradient)" stroke="#3b82f6" stroke-width="4" />
-    <path d="M100 70 C120 60, 140 80, 140 100 C140 120, 120 140, 100 130 C80 140, 60 120, 60 100 C60 80, 80 60, 100 70 Z" fill="none" stroke="white" stroke-width="3" stroke-dasharray="5,5" />
-    <path d="M140 45 C150 35, 165 40, 170 50 C175 60, 170 75, 160 80 C155 85, 145 80, 140 70 Z" fill="#3b82f6" opacity="0.8" />
-    <path d="M80 110 L95 130 L120 90" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
-    <circle cx="100" cy="100" r="8" fill="white" />
-    <circle cx="80" cy="80" r="5" fill="#3b82f6" />
-    <circle cx="120" cy="80" r="5" fill="#3b82f6" />
-    <circle cx="80" cy="120" r="5" fill="#3b82f6" />
-    <circle cx="120" cy="120" r="5" fill="#3b82f6" />
+  <!-- Logo图标 -->
+  <g transform="translate(10, 10)">
+    <!-- Shield background -->
+    <path d="M50 15 L90 30 L90 70 L50 85 L10 70 L10 30 Z" fill="url(#purpleGradient)" stroke="#3b82f6" stroke-width="2" />
+    
+    <!-- Brain/Neural network pattern -->
+    <path d="M50 35 C60 30, 70 40, 70 50 C70 60, 60 70, 50 65 C40 70, 30 60, 30 50 C30 40, 40 30, 50 35 Z" fill="none" stroke="white" stroke-width="1.5" stroke-dasharray="3,3" />
+    
+    <!-- Apple leaf -->
+    <path d="M70 22.5 C75 17.5, 82.5 20, 85 25 C87.5 30, 85 37.5, 80 40 C77.5 42.5, 72.5 40, 70 35 Z" fill="#3b82f6" opacity="0.8" />
+    
+    <!-- Checkmark for compliance -->
+    <path d="M40 55 L47.5 65 L60 45" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+    
+    <!-- Circuit nodes -->
+    <circle cx="50" cy="50" r="4" fill="white" />
+    <circle cx="40" cy="40" r="2.5" fill="#3b82f6" />
+    <circle cx="60" cy="40" r="2.5" fill="#3b82f6" />
+    <circle cx="40" cy="60" r="2.5" fill="#3b82f6" />
+    <circle cx="60" cy="60" r="2.5" fill="#3b82f6" />
   </g>
   
-  <!-- Text -->
-  <text x="120" y="50" class="logo-text">Gracias AI</text>
-  <text x="120" y="85" class="logo-subtext">App Store Auditor</text>
+  <!-- Gracias AI 文字 -->
+  <g>
+    <!-- Gracias -->
+    <text x="110" y="60" class="gracias-text" fill="#1e293b">Gracias</text>
+    
+    <!-- AI (带渐变效果) -->
+    <text x="255" y="60" class="ai-text">
+      <tspan fill="url(#purpleGradient)">AI</tspan>
+    </text>
+    
+    <!-- 副标题 -->
+    <text x="110" y="85" font-family="Inter" font-size="16" font-weight="400" fill="#64748b">
+      App Store Auditor
+    </text>
+  </g>
 </svg>
