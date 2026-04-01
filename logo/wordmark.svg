@@ -1,0 +1,67 @@
+<svg width="400" height="120" viewBox="0 0 400 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="purpleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a855f7" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+    <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#1e40af" />
+    </linearGradient>
+    
+    <!-- Gracias AI 字体样式 -->
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@600;700&display=swap');
+      .gracias-text {
+        font-family: 'Inter', sans-serif;
+        font-weight: 700;
+        font-size: 42px;
+        letter-spacing: -0.5px;
+      }
+      .ai-text {
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+        font-size: 36px;
+        letter-spacing: -0.3px;
+      }
+    </style>
+  </defs>
+  
+  <!-- Logo图标 -->
+  <g transform="translate(10, 10)">
+    <!-- Shield background -->
+    <path d="M50 15 L90 30 L90 70 L50 85 L10 70 L10 30 Z" fill="url(#purpleGradient)" stroke="#3b82f6" stroke-width="2" />
+    
+    <!-- Brain/Neural network pattern -->
+    <path d="M50 35 C60 30, 70 40, 70 50 C70 60, 60 70, 50 65 C40 70, 30 60, 30 50 C30 40, 40 30, 50 35 Z" fill="none" stroke="white" stroke-width="1.5" stroke-dasharray="3,3" />
+    
+    <!-- Apple leaf -->
+    <path d="M70 22.5 C75 17.5, 82.5 20, 85 25 C87.5 30, 85 37.5, 80 40 C77.5 42.5, 72.5 40, 70 35 Z" fill="#3b82f6" opacity="0.8" />
+    
+    <!-- Checkmark for compliance -->
+    <path d="M40 55 L47.5 65 L60 45" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+    
+    <!-- Circuit nodes -->
+    <circle cx="50" cy="50" r="4" fill="white" />
+    <circle cx="40" cy="40" r="2.5" fill="#3b82f6" />
+    <circle cx="60" cy="40" r="2.5" fill="#3b82f6" />
+    <circle cx="40" cy="60" r="2.5" fill="#3b82f6" />
+    <circle cx="60" cy="60" r="2.5" fill="#3b82f6" />
+  </g>
+  
+  <!-- Gracias AI 文字 -->
+  <g>
+    <!-- Gracias -->
+    <text x="110" y="60" class="gracias-text" fill="#1e293b">Gracias</text>
+    
+    <!-- AI (带渐变效果) -->
+    <text x="255" y="60" class="ai-text">
+      <tspan fill="url(#purpleGradient)">AI</tspan>
+    </text>
+    
+    <!-- 副标题 -->
+    <text x="110" y="85" font-family="Inter" font-size="16" font-weight="400" fill="#64748b">
+      App Store Auditor
+    </text>
+  </g>
+</svg>

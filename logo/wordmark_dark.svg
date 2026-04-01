@@ -1,0 +1,47 @@
+<svg width="400" height="120" viewBox="0 0 400 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="purpleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a855f7" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+    <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#60a5fa" />
+    </linearGradient>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;700&display=swap');
+      .logo-text {
+        font-family: 'Inter', sans-serif;
+        font-weight: 700;
+        font-size: 36px;
+        fill: #f9fafb;
+      }
+      .logo-subtext {
+        font-family: 'Inter', sans-serif;
+        font-weight: 500;
+        font-size: 20px;
+        fill: #d1d5db;
+      }
+    </style>
+  </defs>
+  
+  <!-- Dark background -->
+  <rect width="400" height="120" fill="#1f2937" />
+  
+  <!-- Logomark -->
+  <g transform="translate(10, 10) scale(0.5)">
+    <path d="M100 30 L180 60 L180 140 L100 170 L20 140 L20 60 Z" fill="url(#purpleGradient)" stroke="#3b82f6" stroke-width="4" />
+    <path d="M100 70 C120 60, 140 80, 140 100 C140 120, 120 140, 100 130 C80 140, 60 120, 60 100 C60 80, 80 60, 100 70 Z" fill="none" stroke="white" stroke-width="3" stroke-dasharray="5,5" />
+    <path d="M140 45 C150 35, 165 40, 170 50 C175 60, 170 75, 160 80 C155 85, 145 80, 140 70 Z" fill="#93c5fd" opacity="0.9" />
+    <path d="M80 110 L95 130 L120 90" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+    <circle cx="100" cy="100" r="8" fill="white" />
+    <circle cx="80" cy="80" r="5" fill="#93c5fd" />
+    <circle cx="120" cy="80" r="5" fill="#93c5fd" />
+    <circle cx="80" cy="120" r="5" fill="#93c5fd" />
+    <circle cx="120" cy="120" r="5" fill="#93c5fd" />
+  </g>
+  
+  <!-- Text -->
+  <text x="120" y="50" class="logo-text">Gracias AI</text>
+  <text x="120" y="85" class="logo-subtext">App Store Auditor</text>
+</svg>
