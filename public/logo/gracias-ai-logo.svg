@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- 
+    Gracias AI Logo Design
+    版权声明：MIT License | Copyright (c) 2026 思捷娅科技 (SJYKJ)
+    
+    设计理念：
+    - AI/智能：使用神经网络节点和渐变
+    - App Store：使用简洁的几何形状
+    - 安全/合规：使用盾牌形状
+    - 审计：使用放大镜元素
+  -->
+  
+  <defs>
+    <!-- 渐变定义 -->
+    <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- 阴影效果 -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+  
+  <!-- 主盾牌形状（安全/合规） -->
+  <path d="M256 64
+           C256 64 384 96 384 192
+           C384 320 256 448 256 448
+           C256 448 128 320 128 192
+           C128 96 256 64 256 64Z"
+        fill="url(#brandGradient)"
+        filter="url(#shadow)"/>
+  
+  <!-- AI 神经网络节点（智能） -->
+  <circle cx="256" cy="180" r="12" fill="#ffffff" opacity="0.95"/>
+  <circle cx="220" cy="240" r="8" fill="#ffffff" opacity="0.85"/>
+  <circle cx="292" cy="240" r="8" fill="#ffffff" opacity="0.85"/>
+  <circle cx="256" cy="300" r="10" fill="#ffffff" opacity="0.9"/>
+  
+  <!-- 神经网络连接线 -->
+  <line x1="256" y1="180" x2="220" y2="240" stroke="#ffffff" stroke-width="2" opacity="0.6"/>
+  <line x1="256" y1="180" x2="292" y2="240" stroke="#ffffff" stroke-width="2" opacity="0.6"/>
+  <line x1="220" y1="240" x2="256" y2="300" stroke="#ffffff" stroke-width="2" opacity="0.6"/>
+  <line x1="292" y1="240" x2="256" y2="300" stroke="#ffffff" stroke-width="2" opacity="0.6"/>
+  <line x1="220" y1="240" x2="292" y2="240" stroke="#ffffff" stroke-width="2" opacity="0.6"/>
+  
+  <!-- 对勾标记（审计通过/合规） -->
+  <path d="M230 330 L250 350 L282 310"
+        stroke="#ffffff"
+        stroke-width="6"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none"
+        opacity="0.9"/>
+  
+  <!-- 星星装饰（App Store 元素） -->
+  <path d="M256 100 L260 115 L276 115 L263 125 L268 140 L256 130 L244 140 L249 125 L236 115 L252 115 Z"
+        fill="#ffffff"
+        opacity="0.3"/>
+</svg>
