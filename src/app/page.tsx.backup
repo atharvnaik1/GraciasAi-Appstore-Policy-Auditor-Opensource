@@ -1,0 +1,1423 @@
+'use client';
+
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Upload, FileArchive, Key, Loader2,
+  ChevronDown, Download, ArrowLeft,
+  ShieldCheck, AlertTriangle, CheckCircle, XCircle,
+  FileText, Sparkles, Info, Github, ExternalLink, Building2, Star, Mail,
+  Zap, Lock, Code2, Clock, Apple, Cpu
+} from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import Link from 'next/link';
+import { UserButton, SignedOut, SignedIn, useAuth, useClerk } from '@clerk/nextjs';
+
+type AuditPhase = 'idle' | 'uploading' | 'analyzing' | 'complete' | 'error';
+
+const providerModels: Record<string, { label: string; value: string }[]> = {
+  anthropic: [
+    { label: 'Claude Sonnet 4', value: 'claude-sonnet-4-20250514' },
+    { label: 'Claude 3.5 Sonnet', value: 'claude-3-5-sonnet-20241022' },
+    { label: 'Claude 3.5 Haiku', value: 'claude-3-5-haiku-20241022' },
+    { label: 'Claude Opus 4', value: 'claude-opus-4-20250514' },
+  ],
+  openai: [
+    { label: 'GPT-4o', value: 'gpt-4o' },
+    { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
+    { label: 'GPT-4 Turbo', value: 'gpt-4-turbo' },
+    { label: 'o1', value: 'o1' },
+    { label: 'o3 Mini', value: 'o3-mini' },
+  ],
+  gemini: [
+    { label: 'Gemini 2.5 Flash', value: 'gemini-2.5-flash' },
+    { label: 'Gemini 2.5 Pro', value: 'gemini-2.5-pro' },
+    { label: 'Gemini 2.0 Flash', value: 'gemini-2.0-flash' },
+    { label: 'Gemini 1.5 Pro', value: 'gemini-1.5-pro' },
+  ],
+  openrouter: [
+    { label: 'Claude 3.5 Sonnet', value: 'anthropic/claude-3.5-sonnet' },
+    { label: 'GPT-4o', value: 'openai/gpt-4o' },
+    { label: 'Gemini Pro', value: 'google/gemini-pro-1.5' },
+    { label: 'Llama 3.1 405B', value: 'meta-llama/llama-3.1-405b-instruct' },
+    { label: 'Mixtral 8x22B', value: 'mistralai/mixtral-8x22b-instruct' },
+  ],
+};
+
+const selectStyle = {
+  backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E")',
+  backgroundRepeat: 'no-repeat' as const,
+  backgroundPosition: 'right 8px center',
+  paddingRight: '24px',
+};
+
+export default function AuditPage() {
+  const [file, setFile] = useState<File | null>(null);
+  const [claudeApiKey, setClaudeApiKey] = useState('');
+  const [provider, setProvider] = useState('anthropic');
+  const [model, setModel] = useState('claude-sonnet-4-20250514');
+  const [context, setContext] = useState('');
+  const [phase, setPhase] = useState<AuditPhase>('idle');
+  const [reportContent, setReportContent] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [filesScanned, setFilesScanned] = useState(0);
+  const [visitorCount, setVisitorCount] = useState<number | null>(null);
+  const [starCount, setStarCount] = useState<number | null>(null);
+  const [fileNames, setFileNames] = useState<string[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showFileList, setShowFileList] = useState(false);
+  // Upload progress state
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadSpeed, setUploadSpeed] = useState(''); // e.g. '1.2 MB/s'
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedFileId, setUploadedFileId] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState('');
+  const [isAutoAnalyzing, setIsAutoAnalyzing] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const reportRef = useRef<HTMLDivElement>(null);
+  const completeReportRef = useRef<HTMLDivElement>(null);
+  // Keep a ref to the latest handleRunAudit so useEffect can call it without going stale
+  const handleRunAuditRef = useRef<(() => void) | null>(null);
+  // Track the fileId that has already been auto-triggered to prevent double-runs
+  const autoTriggeredFileIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('claude_api_key');
+    if (saved) setClaudeApiKey(saved);
+    fetch('/api/visitor')
+      .then(res => res.json())
+      .then(data => { setVisitorCount(data.count || 0); })
+      .catch(() => { setVisitorCount(0); });
+    fetch('/api/github-stars')
+      .then(res => res.json())
+      .then(data => { setStarCount(data.stars ?? 0); })
+      .catch(() => { setStarCount(0); });
+  }, []);
+
+  useEffect(() => {
+    if (claudeApiKey) localStorage.setItem('claude_api_key', claudeApiKey);
+  }, [claudeApiKey]);
+
+  // Auto-start audit as soon as upload finishes
+  useEffect(() => {
+    if (
+      uploadedFileId &&
+      uploadedFileId !== autoTriggeredFileIdRef.current &&
+      handleRunAuditRef.current
+    ) {
+      autoTriggeredFileIdRef.current = uploadedFileId;
+      setIsAutoAnalyzing(true);
+      // Small delay so state settles before we start
+      setTimeout(() => handleRunAuditRef.current?.(), 300);
+    }
+  }, [uploadedFileId]);
+
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const startUpload = useCallback((picked: File) => {
+    setFile(picked);
+    setUploadedFileId(null);
+    setUploadProgress(0);
+    setUploadSpeed('');
+    setUploadError('');
+    setIsUploading(true);
+
+    const formData = new FormData();
+    formData.append('file', picked);
+
+    const xhr = new XMLHttpRequest();
+    let startTime = Date.now();
+    let lastLoaded = 0;
+
+    xhr.upload.addEventListener('progress', (e) => {
+      if (!e.lengthComputable) return;
+      const pct = Math.round((e.loaded / e.total) * 100);
+      setUploadProgress(pct);
+
+      const now = Date.now();
+      const elapsed = (now - startTime) / 1000; // seconds
+      if (elapsed > 0) {
+        const bytesSec = (e.loaded - lastLoaded) / ((now - startTime) / 1000);
+        // Use total bytes sent / elapsed for a smoother reading
+        const avgBytesPerSec = e.loaded / elapsed;
+        const mbps = avgBytesPerSec / (1024 * 1024);
+        if (mbps >= 1) {
+          setUploadSpeed(`${mbps.toFixed(1)} MB/s`);
+        } else {
+          setUploadSpeed(`${(avgBytesPerSec / 1024).toFixed(0)} KB/s`);
+        }
+        lastLoaded = e.loaded;
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      setIsUploading(false);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          setUploadedFileId(data.fileId);
+          setUploadProgress(100);
+        } catch {
+          setUploadError('Upload response invalid.');
+        }
+      } else {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          setUploadError(data.error || 'Upload failed.');
+        } catch {
+          setUploadError('Upload failed.');
+        }
+      }
+    });
+
+    xhr.addEventListener('error', () => {
+      setIsUploading(false);
+      setUploadError('Upload failed. Check your connection.');
+    });
+
+    xhr.open('POST', '/api/upload');
+    xhr.send(formData);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) {
+      const ext = droppedFile.name.split('.').pop()?.toLowerCase();
+      if (ext !== 'ipa') {
+        setErrorMessage('Please upload an .ipa file');
+      } else if (droppedFile.size > 150 * 1024 * 1024) {
+        setErrorMessage('File exceeds maximum size of 150MB');
+      } else {
+        setErrorMessage('');
+        startUpload(droppedFile);
+      }
+    }
+  }, [startUpload]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (selected) {
+      const ext = selected.name.split('.').pop()?.toLowerCase();
+      if (ext !== 'ipa') {
+        setErrorMessage('Please upload an .ipa file');
+        e.target.value = '';
+        return;
+      }
+      if (selected.size > 150 * 1024 * 1024) {
+        setErrorMessage('File exceeds maximum size of 150MB');
+        e.target.value = '';
+        return;
+      }
+      setErrorMessage('');
+      startUpload(selected);
+    }
+    e.target.value = '';
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  const { isSignedIn } = useAuth();
+  const { openSignIn, openSignUp } = useClerk();
+
+  const handleRunAudit = async () => {
+    if (!file || !claudeApiKey.trim()) {
+      // If upload just finished but API key is missing, show helpful message
+      if (file && !claudeApiKey.trim()) {
+        setErrorMessage('Enter your API key to start analysis.');
+      }
+      return;
+    }
+    if (isUploading) { setErrorMessage('Please wait for the file upload to complete.'); return; }
+    if (uploadError) { setErrorMessage('Upload failed. Please re-select your file.'); return; }
+
+    // Sign-in check only here, not on page load
+    if (!isSignedIn) {
+      openSignIn();
+      return;
+    }
+
+    setPhase('analyzing');
+    setReportContent('');
+    setErrorMessage('');
+    setFilesScanned(0);
+    setFileNames([]);
+
+    try {
+      let response: Response;
+
+      if (uploadedFileId) {
+        // File is already on server — send params only
+        const formData = new FormData();
+        formData.append('fileId', uploadedFileId);
+        formData.append('fileName', file.name);
+        formData.append('claudeApiKey', claudeApiKey.trim());
+        formData.append('provider', provider);
+        formData.append('model', model);
+        formData.append('context', context);
+        response = await fetch('/api/audit', { method: 'POST', body: formData });
+      } else {
+        // Fallback: upload + audit in one go
+        setPhase('uploading');
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('claudeApiKey', claudeApiKey.trim());
+        formData.append('provider', provider);
+        formData.append('model', model);
+        formData.append('context', context);
+        response = await fetch('/api/audit', { method: 'POST', body: formData });
+        setPhase('analyzing');
+      }
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Audit request failed');
+      }
+      if (!response.body) throw new Error('No response body');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let accumulated = '';
+      let totalScannedTemp = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const parsed = JSON.parse(line);
+            if (parsed.type === 'meta') {
+              setFilesScanned(parsed.filesScanned);
+              totalScannedTemp = parsed.filesScanned;
+              setFileNames(parsed.fileNames || []);
+            } else if (parsed.type === 'content') {
+              accumulated += parsed.text;
+              setReportContent(accumulated);
+            } else if (parsed.type === 'error') {
+              throw new Error(parsed.message);
+            }
+          } catch (e: any) {
+            if (e.message === 'Stream interrupted') throw e;
+          }
+        }
+      }
+
+      setPhase('complete');
+      fetch('/api/save-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportContent: accumulated, filesScanned: totalScannedTemp })
+      }).catch(() => {});
+
+    } catch (err: any) {
+      console.error('Audit error:', err);
+      setErrorMessage(err.message || 'An unexpected error occurred');
+      setPhase('error');
+    }
+  };
+
+  // Keep ref in sync so useEffect auto-trigger always has fresh closure
+  handleRunAuditRef.current = handleRunAudit;
+
+  const handleExportReport = () => {
+    if (!reportContent) return;
+    try {
+      const blob = new Blob([reportContent], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `appstore-audit-report-${new Date().toISOString().slice(0, 10)}.md`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 500);
+    } catch (err) {
+      console.error('Markdown export failed:', err);
+      setErrorMessage('Failed to export markdown report');
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!reportContent) return;
+    try {
+      const { marked } = await import('marked');
+
+      // Configure marked for GFM (tables, strikethrough, etc.)
+      marked.setOptions({ gfm: true, breaks: true } as any);
+
+      const bodyHtml = await marked.parse(reportContent);
+      const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+      const fullHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gracias AI — App Store Compliance Report</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 13px;
+      line-height: 1.7;
+      color: #1a1a2e;
+      background: #fff;
+      padding: 32px 40px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ─────────────────────────────────── */
+    .report-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #7c3aed;
+      padding-bottom: 14px;
+      margin-bottom: 28px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-logo {
+      background: linear-gradient(135deg, #7c3aed, #3b82f6);
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 15px; font-weight: 900;
+    }
+    .brand-name { font-size: 17px; font-weight: 800; color: #000; }
+    .brand-sub { font-size: 9px; color: #777; letter-spacing: 1.2px; text-transform: uppercase; margin-top: 1px; }
+    .meta { text-align: right; font-size: 9px; color: #777; }
+    .meta a { color: #7c3aed; text-decoration: none; font-weight: 600; }
+
+    /* ── Typography ─────────────────────────────── */
+    h1 { font-size: 22px; font-weight: 900; color: #0f0f1a; margin: 24px 0 12px; border-bottom: 1px solid #e5e5f0; padding-bottom: 8px; }
+    h2 { font-size: 17px; font-weight: 800; color: #0f0f1a; margin: 28px 0 10px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+    h3 { font-size: 14px; font-weight: 700; color: #1a1a2e; margin: 18px 0 8px; }
+    h4, h5, h6 { font-size: 13px; font-weight: 700; color: #1a1a2e; margin: 12px 0 6px; }
+    p  { margin: 8px 0; color: #333; }
+    ul { margin: 8px 0 8px 20px; }
+    ol { margin: 8px 0 8px 4px; list-style: none; counter-reset: item; }
+    ol li { counter-increment: item; display: flex; align-items: flex-start; gap: 10px; margin: 6px 0;
+            padding: 8px 12px; border: 1px solid #ede9fe; border-radius: 8px; background: #faf8ff; }
+    ol li::before {
+      content: counter(item);
+      min-width: 22px; height: 22px; border-radius: 50%;
+      background: #7c3aed; color: #fff;
+      font-size: 10px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    ul li { margin: 4px 0; color: #444; }
+    li > p { margin: 0; }
+    strong { font-weight: 700; color: #0f0f1a; }
+    em { font-style: italic; }
+    a { color: #7c3aed; text-decoration: none; }
+    code {
+      font-family: "SF Mono", "Fira Code", Consolas, monospace;
+      font-size: 11px;
+      background: #f3f0ff;
+      color: #7c3aed;
+      padding: 2px 5px;
+      border-radius: 4px;
+      border: 1px solid #e9e5ff;
+    }
+    pre { background: #f8f8f8; border: 1px solid #e5e5e5; border-radius: 8px; padding: 14px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: none; border: none; padding: 0; color: #333; }
+    blockquote {
+      border-left: 3px solid #7c3aed;
+      background: #faf8ff;
+      margin: 12px 0;
+      padding: 10px 16px;
+      border-radius: 0 8px 8px 0;
+      color: #444;
+    }
+    blockquote p { margin: 3px 0; }
+    hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+
+    /* ── Tables ─────────────────────────────────── */
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 12px; border-radius: 8px; overflow: hidden; border: 1px solid #e5e5f0; }
+    thead { background: #f3f0ff; }
+    th { padding: 9px 12px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #555; border-bottom: 1px solid #e0ddf8; }
+    td { padding: 9px 12px; border-bottom: 1px solid #f0eeff; color: #333; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background: #fdfcff; }
+
+    /* ── Severity Badges ────────────────────────── */
+    td:has(span.badge) { padding: 7px 12px; }
+    /* Inject badges via JS below */
+
+    /* ── Watermark ──────────────────────────────── */
+    .watermark {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%) rotate(-30deg);
+      font-size: 90px; font-weight: 900;
+      color: rgba(124, 58, 237, 0.04);
+      pointer-events: none; white-space: nowrap; z-index: 0;
+    }
+
+    /* ── Footer ─────────────────────────────────── */
+    .report-footer {
+      margin-top: 36px; padding-top: 14px;
+      border-top: 1px solid #eee;
+      display: flex; justify-content: space-between;
+      font-size: 9px; color: #aaa;
+    }
+
+    @media print {
+      body { padding: 20px 24px; }
+      .no-print { display: none !important; }
+      @page { margin: 16mm 14mm; size: A4; }
+    }
+  </style>
+</head>
+<body>
+  <div class="watermark">Gracias AI</div>
+
+  <div class="report-header">
+    <div class="brand">
+      <div class="brand-logo">G</div>
+      <div>
+        <div class="brand-name">Gracias AI</div>
+        <div class="brand-sub">App Store Compliance Auditor</div>
+      </div>
+    </div>
+    <div class="meta">
+      <div>${dateStr}</div>
+      <div style="margin-top:3px;">
+        <a href="https://gracias.sh">gracias.sh</a> &nbsp;|&nbsp;
+        <a href="mailto:business@gracias.sh">business@gracias.sh</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="report-body">
+    ${bodyHtml}
+  </div>
+
+  <div class="report-footer">
+    <span>Generated by Gracias AI &mdash; App Store Compliance Auditor</span>
+    <span>gracias.sh &nbsp;|&nbsp; business@gracias.sh</span>
+  </div>
+
+  <script>
+    // Colour-code severity cells
+    document.querySelectorAll('td').forEach(function(td) {
+      var t = td.textContent.trim();
+      var map = {
+        'CRITICAL': 'background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;',
+        'HIGH':     'background:#ffedd5;color:#c2410c;border:1px solid #fed7aa;',
+        'MEDIUM':   'background:#fefce8;color:#a16207;border:1px solid #fde68a;',
+        'LOW':      'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;',
+        'PASS':     'background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;',
+        'WARN':     'background:#fffbeb;color:#b45309;border:1px solid #fde68a;',
+        'FAIL':     'background:#fef2f2;color:#dc2626;border:1px solid #fecaca;',
+        'N/A':      'background:#f9fafb;color:#6b7280;border:1px solid #e5e7eb;',
+      };
+      if (map[t]) {
+        td.innerHTML = '<span style="display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;' + map[t] + '">' + t + '</span>';
+      }
+    });
+    window.onload = function() { window.print(); };
+  </script>
+</body>
+</html>`;
+
+      const blob = new Blob([fullHtml], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const printWin = window.open(url, '_blank', 'width=900,height=700');
+      if (!printWin) {
+        // Fallback: direct download of HTML if popup blocked
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `gracias-ai-audit-report-${new Date().toISOString().slice(0, 10)}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      setErrorMessage('Failed to export report. Please try the Markdown export instead.');
+    }
+  };
+
+  const isReady = file && claudeApiKey.trim() && !isUploading && !uploadError;
+
+  return (
+    <main className="min-h-[100dvh] w-full bg-background text-foreground selection:bg-primary/30 relative overflow-hidden font-sans">
+      {/* No full-screen auth gate — sign-in is only triggered on audit button click */}
+
+      {/* Animated Background */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:32px_32px]" />
+        <motion.div
+          animate={{ scale: [1, 1.2, 1], opacity: [0.15, 0.3, 0.15] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[-15%] left-[-15%] w-[600px] h-[600px] bg-primary/20 rounded-full blur-[150px]"
+        />
+        <motion.div
+          animate={{ scale: [1, 1.3, 1], opacity: [0.1, 0.25, 0.1] }}
+          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+          className="absolute bottom-[-15%] right-[-15%] w-[700px] h-[700px] bg-blue-600/15 rounded-full blur-[150px]"
+        />
+        <motion.div
+          animate={{ scale: [1, 1.4, 1], opacity: [0.05, 0.15, 0.05] }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 4 }}
+          className="absolute top-[40%] left-[50%] w-[400px] h-[400px] bg-green-500/10 rounded-full blur-[120px]"
+        />
+      </div>
+
+      {/* Security Banner */}
+      <div className="w-full bg-gradient-to-r from-green-500/10 via-primary/5 to-green-500/10 border-b border-green-500/10 text-center py-2.5 px-4 relative z-30 backdrop-blur-md">
+        <p className="text-xs md:text-sm font-medium flex items-center justify-center gap-2">
+          <Lock className="w-3.5 h-3.5 text-green-400" />
+          <span className="text-green-400 font-semibold">Zero-Trust Architecture</span>
+          <span className="text-muted-foreground hidden sm:inline">Your code never touches our servers. BYOK + ephemeral processing.</span>
+        </p>
+      </div>
+
+      {/* Navigation */}
+      <header className="w-full border-b border-white/5 bg-black/30 backdrop-blur-2xl relative z-30 sticky top-0">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 h-14 md:h-16 flex items-center justify-between">
+          <Link href="https://gracias.sh" target="_blank" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+            <div className="bg-gradient-to-br from-primary to-blue-500 w-8 h-8 rounded-xl flex items-center justify-center shadow-lg shadow-primary/25">
+              <Apple className="w-4 h-4 text-white" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-base font-black text-white leading-tight">Gracias AI</span>
+              <span className="text-[9px] font-medium text-muted-foreground leading-tight tracking-wider uppercase hidden sm:block">App Store Auditor</span>
+            </div>
+          </Link>
+
+          <nav className="hidden lg:flex items-center gap-6">
+            <a href="https://www.producthunt.com/products/gracias-ai-opensource?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-gracias-ai-opensource" target="_blank" rel="noopener noreferrer" className="hover:opacity-90 transition-opacity">
+              <img alt="Gracias AI Opensource - Ai agent to fasten up iOS app publishing| Audit all policies | Product Hunt" style={{ width: 250, height: 54 }} width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1104589&theme=light&t=1774276122946" />
+            </a>
+            <div className="flex items-center gap-1">
+              {['About', 'How it Works', 'Security'].map((item) => (
+                <a key={item} href={`#${item.toLowerCase().replace(/\s+/g, '-')}`}
+                  className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-white hover:bg-white/5 rounded-lg transition-all">
+                  {item}
+                </a>
+              ))}
+            </div>
+          </nav>
+
+          <div className="flex items-center gap-2 md:gap-3">
+            <Link
+              href="https://github.com/atharvnaik1/GraciasAi-Appstore-Policy-Auditor-Opensource"
+              target="_blank"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 text-xs font-bold text-green-400 transition-all shadow-[0_0_15px_rgba(34,197,94,0.15)]"
+            >
+              <Github className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Star on GitHub</span>
+              {starCount !== null && starCount > 0 && (
+                <>
+                  <Star className="w-3 h-3 text-yellow-500" />
+                  <span className="text-yellow-500">{starCount.toLocaleString()}</span>
+                </>
+              )}
+            </Link>
+            <SignedOut>
+              <button
+                onClick={() => openSignIn()}
+                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-primary to-blue-600 text-xs font-bold text-white hover:opacity-90 transition-opacity"
+              >
+                Sign In
+              </button>
+            </SignedOut>
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
+          </div>
+        </div>
+      </header>
+
+      <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-6">
+        <AnimatePresence mode="wait">
+          {/* ═══════════════ IDLE / ERROR STATE ═══════════════ */}
+          {(phase === 'idle' || phase === 'error') && (
+            <motion.div
+              key="idle"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.5 }}
+            >
+              {/* Hero Section */}
+              <div className="text-center pt-12 md:pt-20 pb-10 md:pb-16">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-xs font-semibold text-primary mb-6"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  AI-Powered Compliance Auditing for iOS
+                </motion.div>
+
+                <motion.h1
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight mb-6 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]"
+                >
+                  <span className="text-white">Audit Your iOS App</span>
+                  <br />
+                  <span className="text-white">Before </span>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#a78bfa] via-[#818cf8] to-[#60a5fa] [-webkit-text-stroke:0.5px_rgba(255,255,255,0.1)]">Apple Does</span>
+                </motion.h1>
+
+                <motion.p
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="text-muted-foreground text-base md:text-xl max-w-2xl mx-auto leading-relaxed mb-4"
+                >
+                  Upload your iOS project and get a comprehensive audit against Apple&apos;s Review Guidelines.
+                  Catch rejection risks before you submit.
+                </motion.p>
+
+                {/* Trust indicators */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 }}
+                  className="flex items-center justify-center gap-6 text-xs text-muted-foreground mt-6"
+                >
+                  <span className="flex items-center gap-1.5"><Lock className="w-3 h-3 text-green-400" /> Zero data storage</span>
+                  <span className="flex items-center gap-1.5"><Code2 className="w-3 h-3 text-blue-400" /> Open source</span>
+                  <span className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-amber-400" /> Results in ~60s</span>
+                </motion.div>
+
+                {/* AI Provider Logos */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6 }}
+                  className="mt-8 flex flex-col items-center gap-3"
+                >
+                  <span className="text-[11px] uppercase tracking-widest text-muted-foreground/60 font-medium">Powered by</span>
+                  <div className="flex items-center justify-center gap-6 md:gap-8">
+                    <img src="/logos/gemini.svg" alt="Gemini" className="h-7 w-7 opacity-60 hover:opacity-100 transition-opacity" draggable={false} />
+                    <img src="/logos/openai.svg" alt="OpenAI" className="h-7 w-7 opacity-60 hover:opacity-100 transition-opacity" draggable={false} />
+                    <img src="/logos/anthropic.svg" alt="Anthropic" className="h-7 w-7 opacity-60 hover:opacity-100 transition-opacity" draggable={false} />
+                    <img src="/logos/openrouter.svg" alt="OpenRouter" className="h-7 w-7 opacity-60 hover:opacity-100 transition-opacity" draggable={false} />
+                  </div>
+                </motion.div>
+              </div>
+
+              {/* Main Audit Form */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="max-w-4xl mx-auto"
+              >
+                <div className="glassmorphism rounded-3xl p-6 md:p-8 border border-white/10 shadow-2xl shadow-primary/5">
+                  <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                    {/* Upload Area — spans 3 cols */}
+                    <div className="lg:col-span-3">
+                      <div
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        onClick={() => fileInputRef.current?.click()}
+                        className={`relative cursor-pointer rounded-2xl overflow-hidden transition-all duration-300 h-full min-h-[200px] md:min-h-[240px] flex flex-col items-center justify-center group border-2 border-dashed ${
+                          isDragging
+                            ? 'border-primary bg-primary/5'
+                            : file
+                              ? 'border-green-500/50 bg-green-500/5'
+                              : 'border-white/10 hover:border-primary/30 hover:bg-white/[0.02]'
+                        }`}
+                      >
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".ipa"
+                          onChange={handleFileSelect}
+                          className="hidden"
+                        />
+                        <div className="p-6 flex flex-col items-center justify-center text-center w-full">
+                          {file ? (
+                            <motion.div
+                              initial={{ scale: 0.9, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              className="flex flex-col items-center gap-3 w-full"
+                            >
+                              <div className={`p-3 rounded-2xl border ${isUploading ? 'bg-primary/10 border-primary/20' : uploadError ? 'bg-red-500/10 border-red-500/20' : 'bg-green-500/10 border-green-500/20'}`}>
+                                {isUploading
+                                  ? <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                                  : uploadError
+                                    ? <AlertTriangle className="w-8 h-8 text-red-400" />
+                                    : <FileArchive className="w-8 h-8 text-green-400" />
+                                }
+                              </div>
+                              <div className="w-full">
+                                <p className="text-white font-semibold text-sm md:text-base break-all line-clamp-1 max-w-[280px] mx-auto">{file.name}</p>
+                                <p className="text-muted-foreground text-xs mt-1">{formatFileSize(file.size)}</p>
+                              </div>
+                              {isUploading && (
+                                <div className="w-full max-w-[240px] space-y-1.5">
+                                  <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+                                    <motion.div
+                                      className="h-full rounded-full bg-gradient-to-r from-primary to-blue-500"
+                                      initial={{ width: '0%' }}
+                                      animate={{ width: `${uploadProgress}%` }}
+                                      transition={{ ease: 'linear', duration: 0.3 }}
+                                    />
+                                  </div>
+                                  <div className="flex justify-between items-center text-[10px]">
+                                    <span className="text-primary font-bold">{uploadProgress}%</span>
+                                    {uploadSpeed && <span className="text-muted-foreground">{uploadSpeed}</span>}
+                                  </div>
+                                </div>
+                              )}
+                              {uploadError && (
+                                <p className="text-red-400 text-[10px] text-center max-w-[220px]">{uploadError}</p>
+                              )}
+                              {!isUploading && !uploadError && uploadedFileId && (
+                                <span className={`text-[10px] font-semibold flex items-center gap-1 ${isAutoAnalyzing ? 'text-primary' : 'text-green-400'}`}>
+                                  {isAutoAnalyzing
+                                    ? <><Loader2 className="w-3 h-3 animate-spin" /> Analyzing your code…</>
+                                    : <><CheckCircle className="w-3 h-3" /> Upload complete — starting analysis</>
+                                  }
+                                </span>
+                              )}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setFile(null); setUploadedFileId(null); setUploadProgress(0); setUploadSpeed(''); setUploadError(''); setIsUploading(false); setIsAutoAnalyzing(false); autoTriggeredFileIdRef.current = null; }}
+                                className="px-3 py-1.5 text-xs font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg transition-all flex items-center gap-1.5"
+                              >
+                                <XCircle className="w-3.5 h-3.5" /> Remove
+                              </button>
+                            </motion.div>
+                          ) : (
+                            <div className="flex flex-col items-center">
+                              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 mb-4 group-hover:border-primary/20 group-hover:bg-primary/5 transition-all">
+                                <Upload className="w-7 h-7 text-muted-foreground group-hover:text-primary transition-colors" />
+                              </div>
+                              <p className="text-white font-semibold text-sm md:text-base mb-1">
+                                Drop your .ipa file here
+                              </p>
+                              <p className="text-muted-foreground text-xs mb-3">
+                                <span className="text-primary">.ipa</span> files up to 150MB
+                              </p>
+                              <span className="text-[10px] text-muted-foreground/60 font-medium">
+                                .swift, .m, .plist, .entitlements, .storyboard &amp; more
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Config Area — spans 2 cols */}
+                    <div className="lg:col-span-2 flex flex-col gap-4">
+                      {/* Provider + Model */}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Cpu className="w-3.5 h-3.5 text-primary" />
+                          <span className="text-xs font-semibold text-white">AI Provider</span>
+                        </div>
+                        <select
+                          value={provider}
+                          onChange={(e) => {
+                            const p = e.target.value;
+                            setProvider(p);
+                            setModel(providerModels[p][0].value);
+                          }}
+                          className="w-full bg-white/5 border border-white/10 text-xs text-white font-medium px-3 py-2.5 rounded-xl outline-none focus:ring-1 focus:ring-primary/50 appearance-none cursor-pointer hover:bg-white/[0.08] transition-colors"
+                          style={selectStyle}
+                        >
+                          <option value="anthropic">Anthropic (Claude)</option>
+                          <option value="openai">OpenAI (GPT)</option>
+                          <option value="gemini">Google Gemini</option>
+                          <option value="openrouter">OpenRouter</option>
+                        </select>
+                        <select
+                          value={model}
+                          onChange={(e) => setModel(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 text-xs text-muted-foreground font-medium px-3 py-2.5 rounded-xl outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none cursor-pointer hover:bg-white/[0.08] transition-colors"
+                          style={selectStyle}
+                        >
+                          {providerModels[provider]?.map((m) => (
+                            <option key={m.value} value={m.value}>{m.label}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* API Key */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Key className="w-3.5 h-3.5 text-amber-400" />
+                          <span className="text-xs font-semibold text-white">API Key</span>
+                        </div>
+                        <div className="flex items-stretch gap-2">
+                          <input
+                            type={showApiKey ? 'text' : 'password'}
+                            value={claudeApiKey}
+                            onChange={(e) => setClaudeApiKey(e.target.value)}
+                            placeholder={provider === 'gemini' ? 'AIzaSy...' : `sk-${provider === 'anthropic' ? 'ant-' : provider === 'openrouter' ? 'or-' : 'proj-'}...`}
+                            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-mono"
+                          />
+                          {claudeApiKey && (
+                            <button
+                              type="button"
+                              onClick={() => setShowApiKey(!showApiKey)}
+                              className="px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-medium text-muted-foreground hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                            >
+                              {showApiKey ? 'Hide' : 'Show'}
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground/50 leading-tight">Stored locally in your browser. Never sent to our servers.</p>
+                      </div>
+
+                      {/* Context */}
+                      <div className="flex-1 flex flex-col space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Info className="w-3.5 h-3.5 text-blue-400" />
+                          <span className="text-xs font-semibold text-white">Context <span className="text-muted-foreground font-normal">(optional)</span></span>
+                        </div>
+                        <textarea
+                          value={context}
+                          onChange={(e) => setContext(e.target.value)}
+                          placeholder="e.g., Health & Fitness category, uses HealthKit, has auto-renewable subscriptions..."
+                          className="w-full flex-1 min-h-[60px] bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all resize-none custom-scrollbar"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Error */}
+                  <AnimatePresence>
+                    {errorMessage && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden mt-4"
+                      >
+                        <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 flex items-center gap-3">
+                          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                          <p className="text-red-300 text-xs">{errorMessage}</p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                   {/* Submit */}
+                  <div className="mt-6">
+                    <button
+                      onClick={handleRunAudit}
+                      disabled={!isReady || isUploading}
+                      className={`relative w-full py-3.5 md:py-4 rounded-2xl font-bold text-sm md:text-base flex items-center justify-center gap-2.5 transition-all duration-300 overflow-hidden ${
+                        isReady && !isUploading
+                          ? 'bg-gradient-to-r from-primary to-blue-600 text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.01] active:scale-[0.99]'
+                          : 'bg-white/5 text-muted-foreground/50 cursor-not-allowed border border-white/5'
+                      }`}
+                    >
+                      {isUploading
+                        ? <><Loader2 className="w-5 h-5 animate-spin" /> Uploading… {uploadProgress}%</>
+                        : <><ShieldCheck className="w-5 h-5" /> Run Compliance Audit</>
+                      }
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Feature Cards */}
+              <div id="about" className="mt-20 md:mt-28">
+                <div className="text-center mb-12">
+                  <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Why Gracias AI?</h2>
+                  <p className="text-muted-foreground text-sm md:text-base max-w-xl mx-auto">Stop guessing if your app will pass review. Get definitive answers before you submit.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
+                  {[
+                    {
+                      icon: <ShieldCheck className="w-5 h-5 text-primary" />,
+                      iconBg: 'bg-primary/10 border-primary/20',
+                      title: 'Full Guidelines Coverage',
+                      desc: 'Checks all 6 major App Store Review Guideline categories: Safety, Performance, Business, Design, Legal & Privacy, and Technical.',
+                    },
+                    {
+                      icon: <Zap className="w-5 h-5 text-amber-400" />,
+                      iconBg: 'bg-amber-500/10 border-amber-500/20',
+                      title: 'Real-Time Streaming',
+                      desc: 'Watch your audit report generate live. Results stream in real-time so you can start reading while the analysis continues.',
+                    },
+                    {
+                      icon: <Lock className="w-5 h-5 text-green-400" />,
+                      iconBg: 'bg-green-500/10 border-green-500/20',
+                      title: 'Zero Trust Security',
+                      desc: 'Your code is processed in ephemeral temp storage and deleted immediately. API keys stay in your browser, never on our servers.',
+                    },
+                    {
+                      icon: <Code2 className="w-5 h-5 text-blue-400" />,
+                      iconBg: 'bg-blue-500/10 border-blue-500/20',
+                      title: '100% Open Source',
+                      desc: 'Every line of code is public on GitHub. Inspect exactly how your data is handled, or contribute improvements.',
+                    },
+                    {
+                      icon: <Cpu className="w-5 h-5 text-purple-400" />,
+                      iconBg: 'bg-purple-500/10 border-purple-500/20',
+                      title: 'Multi-Provider BYOK',
+                      desc: 'Bring your own key from Anthropic, OpenAI, Google Gemini, or OpenRouter. Choose the model that works best for you.',
+                    },
+                    {
+                      icon: <FileText className="w-5 h-5 text-cyan-400" />,
+                      iconBg: 'bg-cyan-500/10 border-cyan-500/20',
+                      title: 'Actionable Reports',
+                      desc: 'Get a prioritized remediation plan with severity ratings, exact file paths, and effort estimates. Export as PDF or Markdown.',
+                    },
+                  ].map((card, i) => (
+                    <motion.div
+                      key={card.title}
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: i * 0.08 }}
+                      className="p-5 md:p-6 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-white/10 hover:bg-white/[0.04] transition-all group"
+                    >
+                      <div className={`w-10 h-10 ${card.iconBg} border rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                        {card.icon}
+                      </div>
+                      <h3 className="text-white font-bold text-sm mb-2">{card.title}</h3>
+                      <p className="text-muted-foreground text-xs leading-relaxed">{card.desc}</p>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+
+              {/* How it Works */}
+              <div id="how-it-works" className="mt-20 md:mt-28">
+                <div className="text-center mb-12">
+                  <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Three Steps to Compliance</h2>
+                  <p className="text-muted-foreground text-sm md:text-base max-w-xl mx-auto">From upload to actionable results in under a minute.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {[
+                    {
+                      step: '01',
+                      color: 'from-primary to-purple-600',
+                      title: 'Upload Your Project',
+                      desc: 'Drop your .ipa file and we extract all relevant iOS source files while skipping compiled binaries and build artifacts.',
+                      icon: <Upload className="w-5 h-5" />,
+                    },
+                    {
+                      step: '02',
+                      color: 'from-blue-500 to-cyan-500',
+                      title: 'AI Analyzes Your Code',
+                      desc: 'Your code is sent directly to your chosen AI provider using your API key. We act as a secure passthrough, nothing stored.',
+                      icon: <Cpu className="w-5 h-5" />,
+                    },
+                    {
+                      step: '03',
+                      color: 'from-green-500 to-emerald-500',
+                      title: 'Get Your Audit Report',
+                      desc: 'Receive a comprehensive compliance report with pass/fail indicators, severity ratings, and a prioritized fix list.',
+                      icon: <CheckCircle className="w-5 h-5" />,
+                    },
+                  ].map((item, i) => (
+                    <motion.div
+                      key={item.step}
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: i * 0.15 }}
+                      className="relative p-6 md:p-8 rounded-2xl bg-white/[0.02] border border-white/5 overflow-hidden group hover:border-white/10 transition-all"
+                    >
+                      <div className="absolute top-4 right-4 text-5xl md:text-6xl font-black text-white/[0.03] group-hover:text-white/[0.06] transition-colors select-none">{item.step}</div>
+                      <div className={`w-10 h-10 bg-gradient-to-br ${item.color} rounded-xl flex items-center justify-center mb-5 text-white shadow-lg`}>
+                        {item.icon}
+                      </div>
+                      <h3 className="text-white font-bold text-base mb-2">{item.title}</h3>
+                      <p className="text-muted-foreground text-sm leading-relaxed">{item.desc}</p>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Security Section */}
+              <div id="security" className="mt-20 md:mt-28 mb-16">
+                <div className="rounded-3xl border border-white/5 bg-gradient-to-br from-green-500/5 via-transparent to-primary/5 p-8 md:p-12 overflow-hidden relative">
+                  <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-green-500/30 to-transparent" />
+
+                  <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
+                    <div className="shrink-0">
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-green-500/20 blur-[50px] rounded-full" />
+                        <div className="w-28 h-28 md:w-36 md:h-36 border border-green-500/20 bg-black/50 rounded-full flex items-center justify-center relative backdrop-blur-md">
+                          <ShieldCheck className="w-14 h-14 md:w-18 md:h-18 text-green-400" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h2 className="text-2xl md:text-3xl font-black text-white mb-4">Enterprise-Grade Security</h2>
+                      <p className="text-muted-foreground text-sm md:text-base mb-6 leading-relaxed max-w-2xl">
+                        Your source code is your most valuable IP. Every architectural decision we made prioritizes your security.
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {[
+                          { title: 'No Cloud Storage', desc: 'Files are processed in ephemeral temp directories and deleted immediately after audit.' },
+                          { title: 'Bring Your Own Key', desc: 'Your API key goes directly to your AI provider. We never store or log it.' },
+                          { title: 'Fully Auditable', desc: 'Read every line of our open-source code on GitHub. Full transparency.' },
+                        ].map((item) => (
+                          <div key={item.title} className="flex gap-3">
+                            <CheckCircle className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-white text-sm font-semibold mb-1">{item.title}</p>
+                              <p className="text-muted-foreground text-xs leading-relaxed">{item.desc}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <footer className="border-t border-white/5 py-8 md:py-10">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <Link href="https://gracias.sh" target="_blank" className="flex items-center gap-2 text-sm font-bold text-white hover:opacity-80 transition-opacity">
+                      <div className="bg-gradient-to-br from-primary to-blue-600 w-5 h-5 rounded flex items-center justify-center">
+                        <Apple className="w-2.5 h-2.5 text-white" />
+                      </div>
+                      Gracias AI
+                    </Link>
+                    <span className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()}</span>
+                    {visitorCount !== null && (
+                      <span className="text-xs text-muted-foreground">{visitorCount.toLocaleString()} visitors</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <a href="https://gracias.sh/privacy" className="hover:text-white transition-colors">Privacy</a>
+                    <a href="https://gracias.sh/about" className="hover:text-white transition-colors">About</a>
+                    <a href="mailto:hello@gracias.sh" className="hover:text-white transition-colors">Contact</a>
+                    <a href="https://github.com/atharvnaik1/GraciasAi-Appstore-Policy-Auditor-Opensource" className="flex items-center gap-1 hover:text-white transition-colors">
+                      Source <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+              </footer>
+            </motion.div>
+          )}
+
+          {/* ═══════════════ ANALYZING STATE ═══════════════ */}
+          {(phase === 'uploading' || phase === 'analyzing') && (
+            <motion.div
+              key="analyzing"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="max-w-4xl mx-auto py-12 md:py-16"
+            >
+              <div className="glassmorphism rounded-3xl p-8 md:p-12 relative overflow-hidden border border-white/10">
+                {/* Pulse rings */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-15">
+                  <motion.div animate={{ scale: [1, 3], opacity: [0.5, 0] }} transition={{ duration: 3, repeat: Infinity }} className="absolute w-20 h-20 border border-primary rounded-full" />
+                  <motion.div animate={{ scale: [1, 3], opacity: [0.5, 0] }} transition={{ duration: 3, repeat: Infinity, delay: 1 }} className="absolute w-20 h-20 border border-blue-500 rounded-full" />
+                  <motion.div animate={{ scale: [1, 3], opacity: [0.5, 0] }} transition={{ duration: 3, repeat: Infinity, delay: 2 }} className="absolute w-20 h-20 border border-green-500 rounded-full" />
+                </div>
+
+                <div className="relative z-10 flex flex-col items-center text-center">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+                    className="p-4 rounded-full bg-gradient-to-tr from-primary/20 to-blue-500/20 border border-white/10 shadow-lg shadow-primary/20 mb-8"
+                  >
+                    <Loader2 className="w-10 h-10 text-white" />
+                  </motion.div>
+
+                  <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
+                    {phase === 'uploading' ? 'Extracting Bundle' : 'Analyzing Your Code'}
+                  </h2>
+
+                  <AnimatePresence mode="wait">
+                    <motion.p
+                      key={phase + filesScanned}
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                      className="text-muted-foreground text-sm md:text-base mb-8"
+                    >
+                      {phase === 'uploading'
+                        ? 'Decompressing and parsing source files...'
+                        : filesScanned > 0
+                          ? `Auditing ${filesScanned} source files against App Store guidelines...`
+                          : 'Establishing context window...'}
+                    </motion.p>
+                  </AnimatePresence>
+
+                  {/* Progress bar */}
+                  <div className="w-full max-w-sm mb-6">
+                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                      <motion.div
+                        className="h-full w-1/3 bg-gradient-to-r from-primary to-blue-400 rounded-full"
+                        animate={{ x: ['-100%', '300%'] }}
+                        transition={{ duration: 2, ease: "easeInOut", repeat: Infinity }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* File list */}
+                  {filesScanned > 0 && (
+                    <div className="w-full max-w-sm">
+                      <button
+                        onClick={() => setShowFileList(!showFileList)}
+                        className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/[0.08] border border-white/5 text-xs font-medium text-muted-foreground hover:text-white transition-all flex items-center justify-between"
+                      >
+                        <span className="flex items-center gap-2">
+                          <FileText className="w-3.5 h-3.5 text-primary" />
+                          {filesScanned} files queued
+                        </span>
+                        <motion.div animate={{ rotate: showFileList ? 180 : 0 }}>
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </motion.div>
+                      </button>
+
+                      <AnimatePresence>
+                        {showFileList && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1, marginTop: 8 }}
+                            exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="max-h-40 overflow-y-auto bg-black/40 border border-white/5 rounded-xl p-3 custom-scrollbar text-left">
+                              {fileNames.map((name, i) => (
+                                <div key={i} className="text-[10px] text-muted-foreground font-mono py-1 flex items-center gap-2 border-b border-white/[0.03] last:border-0">
+                                  <div className="w-1 h-1 rounded-full bg-primary/50 shrink-0" />
+                                  <span className="truncate">{name}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Live streaming preview */}
+              {reportContent && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-6 glassmorphism rounded-2xl overflow-hidden border border-primary/20"
+                >
+                  <div className="px-4 py-3 border-b border-white/10 bg-black/40 flex items-center gap-2.5 sticky top-0 z-20">
+                    <div className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                    </div>
+                    <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">Live Stream</span>
+                  </div>
+                  <div ref={reportRef} className="p-5 md:p-8 max-h-[400px] overflow-y-auto custom-scrollbar bg-black/20">
+                    <div className="prose prose-invert max-w-none text-xs md:text-sm leading-relaxed">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{reportContent}</ReactMarkdown>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ═══════════════ COMPLETE STATE ═══════════════ */}
+          {phase === 'complete' && reportContent && (
+            <motion.div
+              key="complete"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="py-8 md:py-12 space-y-6"
+            >
+              {/* Status bar */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-2xl bg-green-500/5 border border-green-500/20">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-green-500/15 border border-green-500/20">
+                    <CheckCircle className="w-5 h-5 text-green-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-bold text-sm">Audit Complete</h3>
+                    <p className="text-muted-foreground text-xs">{filesScanned} files analyzed</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    onClick={handleExportReport}
+                    className="flex-1 sm:flex-none px-4 py-2.5 bg-white text-black hover:bg-gray-100 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Markdown
+                  </button>
+                  <button
+                    onClick={handleExportPdf}
+                    className="flex-1 sm:flex-none px-4 py-2.5 bg-blue-600 text-white hover:bg-blue-700 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <FileText className="w-3.5 h-3.5" /> PDF
+                  </button>
+                  <button
+                    onClick={() => { setPhase('idle'); setReportContent(''); setFile(null); }}
+                    className="flex-1 sm:flex-none px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" /> New Audit
+                  </button>
+                </div>
+              </div>
+
+              {/* Report */}
+              <div className="rounded-2xl overflow-hidden border border-white/10 bg-black/30">
+                <div className="px-5 md:px-8 py-3 border-b border-white/10 bg-black/50 sticky top-0 z-20 backdrop-blur-xl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="bg-gradient-to-br from-primary to-blue-500 w-6 h-6 rounded-lg flex items-center justify-center">
+                        <Apple className="w-3 h-3 text-white" />
+                      </div>
+                      <span className="text-sm font-bold text-white">Gracias AI</span>
+                      <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">Compliance Report</span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground font-medium">
+                      {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-2 pt-2 border-t border-white/5">
+                    <a href="https://www.producthunt.com/posts/gracias-ai" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-orange-400/80 hover:text-orange-400 font-medium transition-colors">
+                      <Zap className="w-3 h-3" /> Product Hunt
+                    </a>
+                    <a href="mailto:business@gracias.sh" className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-white font-medium transition-colors">
+                      <Mail className="w-3 h-3" /> business@gracias.sh
+                    </a>
+                    <a href="https://github.com/atharvnaik1/GraciasAi-Appstore-Policy-Auditor-Opensource" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-white font-medium transition-colors">
+                      <Github className="w-3 h-3" /> Source
+                    </a>
+                  </div>
+                </div>
+
+                <div className="p-5 md:p-10 overflow-y-auto max-h-[75vh] custom-scrollbar">
+                  <div ref={completeReportRef} className="prose prose-invert max-w-none text-sm md:text-base leading-relaxed prose-headings:text-foreground prose-p:text-muted-foreground prose-p:leading-relaxed prose-li:text-muted-foreground prose-li:my-1 prose-strong:text-white prose-strong:font-bold prose-a:text-primary prose-a:transition-colors prose-code:text-primary prose-code:bg-primary/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-xs prose-code:border prose-code:border-primary/20 prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10 prose-pre:rounded-xl prose-pre:p-4">
+                    <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          // ── Tables ───────────────────────────────────────
+                          table: ({ children }) => (
+                            <div className="overflow-x-auto my-6 rounded-xl border border-white/10 shadow-lg">
+                              <table className="w-full text-sm border-collapse">{children}</table>
+                            </div>
+                          ),
+                          thead: ({ children }) => (
+                            <thead className="bg-white/[0.06] border-b border-white/10">{children}</thead>
+                          ),
+                          tbody: ({ children }) => (
+                            <tbody className="divide-y divide-white/[0.05]">{children}</tbody>
+                          ),
+                          tr: ({ children }) => (
+                            <tr className="hover:bg-white/[0.03] transition-colors">{children}</tr>
+                          ),
+                          th: ({ children }) => (
+                            <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
+                              {children}
+                            </th>
+                          ),
+                          td: ({ children }) => {
+                            const text = String(children ?? '');
+                            // Severity badge colouring
+                            if (['CRITICAL','HIGH','MEDIUM','LOW'].includes(text.trim())) {
+                              const colours: Record<string, string> = {
+                                CRITICAL: 'bg-red-500/20 text-red-300 border-red-500/30',
+                                HIGH:     'bg-orange-500/20 text-orange-300 border-orange-500/30',
+                                MEDIUM:   'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+                                LOW:      'bg-blue-500/20 text-blue-300 border-blue-500/30',
+                              };
+                              return (
+                                <td className="px-4 py-3">
+                                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border ${colours[text.trim()]}`}>
+                                    {text.trim()}
+                                  </span>
+                                </td>
+                              );
+                            }
+                            return <td className="px-4 py-3 text-sm text-muted-foreground align-middle">{children}</td>;
+                          },
+                          // ── Ordered list — Phase 2 numbered items ────────
+                          ol: ({ children }) => (
+                            <ol className="my-4 space-y-3 list-none pl-0">{children}</ol>
+                          ),
+                          li: ({ children, ...props }) => {
+                            // Only style top-level items inside ol
+                            const ordered = (props as any).ordered ?? false;
+                            if (ordered) {
+                              const index = (props as any).index ?? 0;
+                              return (
+                                <li className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/10 transition-all">
+                                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 text-primary text-[10px] font-black flex items-center justify-center mt-0.5">
+                                    {index + 1}
+                                  </span>
+                                  <span className="text-sm text-muted-foreground leading-relaxed flex-1">{children}</span>
+                                </li>
+                              );
+                            }
+                            return <li className="text-sm text-muted-foreground leading-relaxed my-1.5 pl-1">{children}</li>;
+                          },
+                          // ── Blockquote ────────────────────────────────────
+                          blockquote: ({ children }) => (
+                            <blockquote className="my-4 pl-4 border-l-2 border-primary/40 bg-primary/5 rounded-r-xl py-3 pr-4 text-sm text-muted-foreground">
+                              {children}
+                            </blockquote>
+                          ),
+                          // ── Headings ──────────────────────────────────────
+                          h2: ({ children }) => (
+                            <h2 className="text-xl font-black text-white mt-10 mb-4 pb-2 border-b border-white/10 flex items-center gap-2">
+                              {children}
+                            </h2>
+                          ),
+                          h3: ({ children }) => (
+                            <h3 className="text-base font-bold text-white/90 mt-6 mb-3">{children}</h3>
+                          ),
+                        }}
+                      >
+                        {reportContent}
+                      </ReactMarkdown>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+    </main>
+  );
+}
