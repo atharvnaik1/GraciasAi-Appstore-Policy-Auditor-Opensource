@@ -9,6 +9,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 300;
 
 const MAX_UPLOAD_SIZE = 150 * 1024 * 1024;
+const UPLOAD_TEMP_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 export async function POST(req: NextRequest) {
   let tempDir: string | null = null;
@@ -102,6 +103,12 @@ export async function POST(req: NextRequest) {
 
       nodeStream.pipe(busboy);
     });
+
+    const uploadDir = tempDir;
+    const cleanupTimer = setTimeout(() => {
+      fs.rm(uploadDir, { recursive: true, force: true }).catch(() => {});
+    }, UPLOAD_TEMP_TTL_MS);
+    cleanupTimer.unref?.();
 
     return NextResponse.json(parsed);
   } catch (error: any) {
