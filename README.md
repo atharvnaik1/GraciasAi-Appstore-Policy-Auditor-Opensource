@@ -33,6 +33,12 @@ AI-powered iOS App Store compliance auditor. Upload your `.ipa` file and get a c
 - Node.js 18+
 - MongoDB URI (Atlas or local)
 - API key from at least one AI provider
+- `unzip` installed on the server/runtime environment
+
+```bash
+# Ubuntu/Debian
+sudo apt-get update && sudo apt-get install -y unzip
+```
 
 ### Setup
 
@@ -82,6 +88,9 @@ A deployment script is included for Ubuntu 24.04 VMs:
 ```bash
 # On the server, create .env.local first
 echo 'MONGODB_URI=your_mongodb_uri_here' > /opt/gracias-ai/.env.local
+
+# Ensure unzip is installed (required by /api/audit extraction)
+sudo apt-get update && sudo apt-get install -y unzip
 
 # Then run the deploy script
 chmod +x deploy.sh
