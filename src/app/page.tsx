@@ -39,6 +39,7 @@ const providerModels: Record<string, { label: string; value: string }[]> = {
   openrouter: [
     { label: 'Claude 3.5 Sonnet', value: 'anthropic/claude-3.5-sonnet' },
     { label: 'GPT-4o', value: 'openai/gpt-4o' },
+    { label: 'Gemini 2.5 Flash', value: 'google/gemini-2.5-flash' },
     { label: 'Gemini Pro', value: 'google/gemini-pro-1.5' },
     { label: 'Llama 3.1 405B', value: 'meta-llama/llama-3.1-405b-instruct' },
     { label: 'Mixtral 8x22B', value: 'mistralai/mixtral-8x22b-instruct' },

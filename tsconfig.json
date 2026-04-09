@@ -11,6 +11,7 @@
     "strict": false,
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
+    "ignoreDeprecations": "5.0",
     "incremental": true,
     "esModuleInterop": true,
     "module": "esnext",
