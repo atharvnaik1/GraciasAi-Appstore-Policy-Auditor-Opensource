@@ -362,16 +362,83 @@ export default function AuditPage() {
     }
   };
 
+  const [isPdfExporting, setIsPdfExporting] = useState(false);
+
   const handleExportPdf = async () => {
-    if (!reportContent) return;
+    if (!reportContent || isPdfExporting) return;
+    setIsPdfExporting(true);
     try {
       const { marked } = await import('marked');
+      const html2pdf = (await import('html2pdf.js')).default;
 
       // Configure marked for GFM (tables, strikethrough, etc.)
       marked.setOptions({ gfm: true, breaks: true } as any);
 
       const bodyHtml = await marked.parse(reportContent);
       const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+      // Extract metrics from report for the summary chart
+      const criticalMatch = reportContent.match(/\*\*Critical Issues\*\*[^|]*\|(\d+)\|/i);
+      const warningMatch = reportContent.match(/\*\*Warnings\*\*[^|]*\|(\d+)\|/i);
+      const passMatch = reportContent.match(/\*\*Passed Checks\*\*[^|]*\|(\d+)\|/i);
+      const scoreMatch = reportContent.match(/Readiness Score[^|]*\|(\d+)\/100\|/i);
+      const riskMatch = reportContent.match(/Overall Risk Level[^|]*\|([^|]+)\|/i);
+      const criticalCount = criticalMatch ? parseInt(criticalMatch[1]) : 0;
+      const warningCount = warningMatch ? parseInt(warningMatch[1]) : 0;
+      const passCount = passMatch ? parseInt(passMatch[1]) : 0;
+      const readinessScore = scoreMatch ? parseInt(scoreMatch[1]) : 0;
+      const riskLevel = riskMatch ? riskMatch[1].trim() : 'N/A';
+      const totalChecks = criticalCount + warningCount + passCount;
+
+      // Build metrics summary chart
+      const metricsChart = totalChecks > 0 ? `
+    <div class="metrics-summary">
+      <h2 style="margin-top:0">Report Metrics</h2>
+      <div class="metrics-grid">
+        <div class="metric-card metric-risk">
+          <div class="metric-label">Overall Risk</div>
+          <div class="metric-value">${riskLevel}</div>
+        </div>
+        <div class="metric-card metric-score">
+          <div class="metric-label">Readiness</div>
+          <div class="metric-value">${readinessScore}/100</div>
+        </div>
+        <div class="metric-card metric-critical">
+          <div class="metric-label">Critical</div>
+          <div class="metric-value">${criticalCount}</div>
+        </div>
+        <div class="metric-card metric-warning">
+          <div class="metric-label">Warnings</div>
+          <div class="metric-value">${warningCount}</div>
+        </div>
+        <div class="metric-card metric-pass">
+          <div class="metric-label">Passed</div>
+          <div class="metric-value">${passCount}</div>
+        </div>
+      </div>
+      <div class="progress-bar-container">
+        <div class="progress-bar">
+          <div class="progress-fill progress-pass" style="width:${totalChecks > 0 ? (passCount/totalChecks*100) : 0}%">${passCount > 0 ? passCount + ' Pass' : ''}</div>
+          <div class="progress-fill progress-warn" style="width:${totalChecks > 0 ? (warningCount/totalChecks*100) : 0}%">${warningCount > 0 ? warningCount + ' Warn' : ''}</div>
+          <div class="progress-fill progress-fail" style="width:${totalChecks > 0 ? (criticalCount/totalChecks*100) : 0}%">${criticalCount > 0 ? criticalCount + ' Fail' : ''}</div>
+        </div>
+      </div>
+    </div>` : '';
+
+      // Build table of contents from headings
+      const tocEntries: string[] = [];
+      const headingRegex = /^#{1,3}\s+(.+)$/gm;
+      let tocMatch;
+      while ((tocMatch = headingRegex.exec(reportContent)) !== null) {
+        const heading = tocMatch[1].replace(/\*\*/g, '').trim();
+        const anchor = heading.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        tocEntries.push(`<li><a href="#${anchor}">${heading}</a></li>`);
+      }
+      const tocHtml = tocEntries.length > 0 ? `
+    <div class="toc">
+      <h2 style="margin-top:0">Table of Contents</h2>
+      <ol>${tocEntries.join('')}</ol>
+    </div>` : '';
 
       const fullHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -413,6 +480,32 @@ export default function AuditPage() {
     .brand-sub { font-size: 9px; color: #777; letter-spacing: 1.2px; text-transform: uppercase; margin-top: 1px; }
     .meta { text-align: right; font-size: 9px; color: #777; }
     .meta a { color: #7c3aed; text-decoration: none; font-weight: 600; }
+
+    /* ── Metrics Summary ────────────────────────── */
+    .metrics-summary { margin-bottom: 28px; padding: 20px; background: #faf8ff; border: 1px solid #ede9fe; border-radius: 12px; }
+    .metrics-grid { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .metric-card { flex: 1; min-width: 100px; padding: 12px; border-radius: 8px; text-align: center; }
+    .metric-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; opacity: 0.8; }
+    .metric-value { font-size: 20px; font-weight: 900; margin-top: 4px; }
+    .metric-risk { background: #fef2f2; color: #dc2626; }
+    .metric-score { background: #f0fdf4; color: #15803d; }
+    .metric-critical { background: #fee2e2; color: #b91c1c; }
+    .metric-warning { background: #fffbeb; color: #b45309; }
+    .metric-pass { background: #f0fdf4; color: #15803d; }
+    .progress-bar-container { margin-top: 8px; }
+    .progress-bar { display: flex; height: 24px; border-radius: 12px; overflow: hidden; background: #f3f4f6; }
+    .progress-fill { display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff; transition: width 0.3s; }
+    .progress-pass { background: #16a34a; }
+    .progress-warn { background: #d97706; }
+    .progress-fail { background: #dc2626; }
+
+    /* ── Table of Contents ─────────────────────── */
+    .toc { margin-bottom: 28px; padding: 16px 20px; background: #faf8ff; border: 1px solid #ede9fe; border-radius: 12px; }
+    .toc ol { margin: 8px 0 0 0; padding: 0; list-style: none; counter-reset: toc-item; }
+    .toc li { counter-increment: toc-item; padding: 4px 0; font-size: 12px; }
+    .toc li::before { content: counter(toc-item) "."; font-weight: 700; color: #7c3aed; margin-right: 8px; }
+    .toc a { color: #7c3aed; text-decoration: none; font-weight: 600; }
+    .toc a:hover { text-decoration: underline; }
 
     /* ── Typography ─────────────────────────────── */
     h1 { font-size: 22px; font-weight: 900; color: #0f0f1a; margin: 24px 0 12px; border-bottom: 1px solid #e5e5f0; padding-bottom: 8px; }
@@ -467,9 +560,15 @@ export default function AuditPage() {
     tr:last-child td { border-bottom: none; }
     tr:nth-child(even) td { background: #fdfcff; }
 
-    /* ── Severity Badges ────────────────────────── */
-    td:has(span.badge) { padding: 7px 12px; }
-    /* Inject badges via JS below */
+    /* ── Severity Badges (inline spans for PDF) ── */
+    .badge-critical { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+    .badge-high { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
+    .badge-medium { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; background: #fefce8; color: #a16207; border: 1px solid #fde68a; }
+    .badge-low { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .badge-pass { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .badge-warn { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+    .badge-fail { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .badge-na { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; background: #f9fafb; color: #6b7280; border: 1px solid #e5e7eb; }
 
     /* ── Watermark ──────────────────────────────── */
     .watermark {
@@ -487,6 +586,12 @@ export default function AuditPage() {
       display: flex; justify-content: space-between;
       font-size: 9px; color: #aaa;
     }
+
+    /* ── Page break control for PDF ─────────────── */
+    .page-break-before { page-break-before: always; }
+    h2 { page-break-after: avoid; }
+    blockquote { page-break-inside: avoid; }
+    table { page-break-inside: avoid; }
 
     @media print {
       body { padding: 20px 24px; }
@@ -515,6 +620,9 @@ export default function AuditPage() {
     </div>
   </div>
 
+  ${metricsChart}
+  ${tocHtml}
+
   <div id="report-body">
     ${bodyHtml}
   </div>
@@ -525,44 +633,52 @@ export default function AuditPage() {
   </div>
 
   <script>
-    // Colour-code severity cells
+    // Colour-code severity cells with inline badge spans (PDF-compatible)
     document.querySelectorAll('td').forEach(function(td) {
       var t = td.textContent.trim();
-      var map = {
-        'CRITICAL': 'background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;',
-        'HIGH':     'background:#ffedd5;color:#c2410c;border:1px solid #fed7aa;',
-        'MEDIUM':   'background:#fefce8;color:#a16207;border:1px solid #fde68a;',
-        'LOW':      'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;',
-        'PASS':     'background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;',
-        'WARN':     'background:#fffbeb;color:#b45309;border:1px solid #fde68a;',
-        'FAIL':     'background:#fef2f2;color:#dc2626;border:1px solid #fecaca;',
-        'N/A':      'background:#f9fafb;color:#6b7280;border:1px solid #e5e7eb;',
+      var classMap = {
+        'CRITICAL': 'badge-critical',
+        'HIGH': 'badge-high',
+        'MEDIUM': 'badge-medium',
+        'LOW': 'badge-low',
+        'PASS': 'badge-pass',
+        'WARN': 'badge-warn',
+        'FAIL': 'badge-fail',
+        'N/A': 'badge-na'
       };
-      if (map[t]) {
-        td.innerHTML = '<span style="display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;' + map[t] + '">' + t + '</span>';
+      if (classMap[t]) {
+        td.innerHTML = '<span class="' + classMap[t] + '">' + t + '</span>';
       }
     });
-    window.onload = function() { window.print(); };
   </script>
 </body>
 </html>`;
 
-      const blob = new Blob([fullHtml], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const printWin = window.open(url, '_blank', 'width=900,height=700');
-      if (!printWin) {
-        // Fallback: direct download of HTML if popup blocked
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `gracias-ai-audit-report-${new Date().toISOString().slice(0, 10)}.html`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      // Create a temporary container for html2pdf.js rendering
+      const container = document.createElement('div');
+      container.innerHTML = fullHtml;
+      document.body.appendChild(container);
+
+      // Generate PDF with html2pdf.js
+      const filename = `gracias-ai-audit-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const options = {
+        margin: [16, 14, 16, 14],
+        filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      };
+
+      await html2pdf().set(options).from(container).save();
+
+      // Clean up
+      document.body.removeChild(container);
     } catch (err) {
       console.error('PDF export failed:', err);
-      setErrorMessage('Failed to export report. Please try the Markdown export instead.');
+      setErrorMessage('Failed to export PDF. Please try the Markdown export instead.');
+    } finally {
+      setIsPdfExporting(false);
     }
   };
 
@@ -1285,9 +1401,10 @@ export default function AuditPage() {
                   </button>
                   <button
                     onClick={handleExportPdf}
-                    className="flex-1 sm:flex-none px-4 py-2.5 bg-blue-600 text-white hover:bg-blue-700 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+                    disabled={isPdfExporting}
+                    className={`flex-1 sm:flex-none px-4 py-2.5 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all ${isPdfExporting ? 'bg-blue-400 text-white/70 cursor-wait' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
                   >
-                    <FileText className="w-3.5 h-3.5" /> PDF
+                    {isPdfExporting ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating PDF...</> : <><FileText className="w-3.5 h-3.5" /> PDF</>}
                   </button>
                   <button
                     onClick={() => { setPhase('idle'); setReportContent(''); setFile(null); }}
