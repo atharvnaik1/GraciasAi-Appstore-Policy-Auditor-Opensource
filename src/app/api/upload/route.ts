@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { execFile } from 'child_process';
 import { promises as fs, createWriteStream } from 'fs';
 import path from 'path';
 import os from 'os';
+import { promisify } from 'util';
 import { Readable } from 'stream';
 import Busboy from 'busboy';
+
+const execFileAsync = promisify(execFile);
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -35,14 +39,13 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const parsed = await new Promise((resolve, reject) => {
+    const parsed = await new Promise<{ fileName: string, fileId: string, type: 'ios' | 'android' }>((resolve, reject) => {
       const busboy = Busboy({
         headers: { 'content-type': contentType },
         limits: { fileSize: MAX_UPLOAD_SIZE, files: 1 },
       });
 
       let fileName = '';
-      let filePath = '';
       let fileReceived = false;
       let writeFinished = false;
       let busboyFinished = false;
@@ -50,7 +53,12 @@ export async function POST(req: NextRequest) {
 
       const tryResolve = () => {
         if (busboyFinished && writeFinished && !rejected) {
-          resolve({ fileName, fileId: path.basename(tempDir!) });
+          const ext = path.extname(fileName).toLowerCase();
+          resolve({ 
+            fileName, 
+            fileId: path.basename(tempDir!), 
+            type: ext === '.apk' ? 'android' : 'ios' 
+          });
         }
       };
 
@@ -68,7 +76,7 @@ export async function POST(req: NextRequest) {
         }
 
         fileName = info.filename || 'upload.ipa';
-        filePath = path.join(tempDir!, fileName);
+        const filePath = path.join(tempDir!, fileName);
         fileReceived = true;
 
         const writeStream = createWriteStream(filePath);
