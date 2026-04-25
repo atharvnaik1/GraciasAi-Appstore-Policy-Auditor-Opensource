@@ -28,12 +28,14 @@ jobs:
           npm install
           npm run build --if-present
           npm run test --if-present
+          cp -r public .next/standalone/public
+          cp -r .next/static .next/standalone/.next/static
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: .
+          path: .next/standalone
 
   deploy:
     runs-on: ubuntu-latest
@@ -47,11 +49,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: node-app
-          path: 
-            .next
-            public
-            package.json
-            node_modules
+          path: .
       
       - name: Login to Azure
         uses: azure/login@v2
