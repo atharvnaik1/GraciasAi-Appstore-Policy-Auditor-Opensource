@@ -43,6 +43,11 @@ const providerModels: Record<string, { label: string; value: string }[]> = {
     { label: 'Llama 3.1 405B', value: 'meta-llama/llama-3.1-405b-instruct' },
     { label: 'Mixtral 8x22B', value: 'mistralai/mixtral-8x22b-instruct' },
   ],
+  ipaship: [
+    { label: 'GLM 5.1', value: 'glm-5.1' },
+    { label: 'ipaShip AI Core', value: 'meta/llama-3.1-405b-instruct' },
+    { label: 'ipaShip AI Fast', value: 'meta/llama-3.1-70b-instruct' },
+  ],
 };
 
 const selectStyle = {
@@ -54,9 +59,8 @@ const selectStyle = {
 
 export default function AuditPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [claudeApiKey, setClaudeApiKey] = useState('');
-  const [provider, setProvider] = useState('anthropic');
-  const [model, setModel] = useState('claude-sonnet-4-20250514');
+  const [provider, setProvider] = useState('ipaship');
+  const [model, setModel] = useState('glm-5.1');
   const [context, setContext] = useState('');
   const [phase, setPhase] = useState<AuditPhase>('idle');
   const [reportContent, setReportContent] = useState('');
@@ -66,7 +70,6 @@ export default function AuditPage() {
   const [starCount, setStarCount] = useState<number | null>(null);
   const [fileNames, setFileNames] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
-  const [showApiKey, setShowApiKey] = useState(false);
   const [showFileList, setShowFileList] = useState(false);
   // Upload progress state
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -85,8 +88,6 @@ export default function AuditPage() {
   const autoTriggeredFileIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('claude_api_key');
-    if (saved) setClaudeApiKey(saved);
     fetch('/api/visitor')
       .then(res => res.json())
       .then(data => { setVisitorCount(data.count || 0); })
@@ -97,9 +98,6 @@ export default function AuditPage() {
       .catch(() => { setStarCount(0); });
   }, []);
 
-  useEffect(() => {
-    if (claudeApiKey) localStorage.setItem('claude_api_key', claudeApiKey);
-  }, [claudeApiKey]);
 
   // Auto-start audit as soon as upload finishes
   useEffect(() => {
@@ -200,8 +198,8 @@ export default function AuditPage() {
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile) {
       const ext = droppedFile.name.split('.').pop()?.toLowerCase();
-      if (ext !== 'ipa' && ext !== 'apk') {
-        setErrorMessage('Please upload an .ipa or .apk file');
+      if (ext !== 'ipa' && ext !== 'apk' && ext !== 'zip') {
+        setErrorMessage('Please upload an .ipa, .apk, or .zip file');
       } else if (droppedFile.size > 150 * 1024 * 1024) {
         setErrorMessage('File exceeds maximum size of 150MB');
       } else {
@@ -215,8 +213,8 @@ export default function AuditPage() {
     const selected = e.target.files?.[0];
     if (selected) {
       const ext = selected.name.split('.').pop()?.toLowerCase();
-      if (ext !== 'ipa' && ext !== 'apk') {
-        setErrorMessage('Please upload an .ipa or .apk file');
+      if (ext !== 'ipa' && ext !== 'apk' && ext !== 'zip') {
+        setErrorMessage('Please upload an .ipa, .apk, or .zip file');
         e.target.value = '';
         return;
       }
@@ -241,11 +239,7 @@ export default function AuditPage() {
   const { openSignIn, openSignUp } = useClerk();
 
   const handleRunAudit = async () => {
-    if (!file || !claudeApiKey.trim()) {
-      // If upload just finished but API key is missing, show helpful message
-      if (file && !claudeApiKey.trim()) {
-        setErrorMessage('Enter your API key to start analysis.');
-      }
+    if (!file) {
       return;
     }
     if (isUploading) { setErrorMessage('Please wait for the file upload to complete.'); return; }
@@ -271,7 +265,6 @@ export default function AuditPage() {
         const formData = new FormData();
         formData.append('fileId', uploadedFileId);
         formData.append('fileName', file.name);
-        formData.append('claudeApiKey', claudeApiKey.trim());
         formData.append('provider', provider);
         formData.append('model', model);
         formData.append('context', context);
@@ -281,7 +274,6 @@ export default function AuditPage() {
         setPhase('uploading');
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('claudeApiKey', claudeApiKey.trim());
         formData.append('provider', provider);
         formData.append('model', model);
         formData.append('context', context);
@@ -333,7 +325,7 @@ export default function AuditPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reportContent: accumulated, filesScanned: totalScannedTemp })
-      }).catch(() => {});
+      }).catch(() => { });
 
     } catch (err: any) {
       console.error('Audit error:', err);
@@ -566,7 +558,7 @@ export default function AuditPage() {
     }
   };
 
-  const isReady = file && claudeApiKey.trim() && !isUploading && !uploadError;
+  const isReady = file && !isUploading && !uploadError;
 
   return (
     <main className="min-h-[100dvh] w-full bg-background text-foreground selection:bg-primary/30 relative overflow-hidden font-sans">
@@ -748,18 +740,17 @@ export default function AuditPage() {
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
                         onClick={() => fileInputRef.current?.click()}
-                        className={`relative cursor-pointer rounded-2xl overflow-hidden transition-all duration-300 h-full min-h-[200px] md:min-h-[240px] flex flex-col items-center justify-center group border-2 border-dashed ${
-                          isDragging
+                        className={`relative cursor-pointer rounded-2xl overflow-hidden transition-all duration-300 h-full min-h-[200px] md:min-h-[240px] flex flex-col items-center justify-center group border-2 border-dashed ${isDragging
                             ? 'border-primary bg-primary/5'
                             : file
                               ? 'border-green-500/50 bg-green-500/5'
                               : 'border-white/10 hover:border-primary/30 hover:bg-white/[0.02]'
-                        }`}
+                          }`}
                       >
                         <input
                           ref={fileInputRef}
                           type="file"
-                          accept=".ipa,.apk"
+                          accept=".ipa,.apk,.zip"
                           onChange={handleFileSelect}
                           className="hidden"
                         />
@@ -822,10 +813,10 @@ export default function AuditPage() {
                                 <Upload className="w-7 h-7 text-muted-foreground group-hover:text-primary transition-colors" />
                               </div>
                               <p className="text-white font-semibold text-sm md:text-base mb-1">
-                                Drop your .ipa file here
+                                Drop your app bundle here
                               </p>
                               <p className="text-muted-foreground text-xs mb-3">
-                                <span className="text-primary">.ipa</span> files up to 150MB
+                                <span className="text-primary">.ipa, .apk, .zip</span> files up to 150MB
                               </p>
                               <span className="text-[10px] text-muted-foreground/60 font-medium">
                                 .swift, .m, .plist, .entitlements, .storyboard &amp; more
@@ -854,6 +845,7 @@ export default function AuditPage() {
                           className="w-full bg-white/5 border border-white/10 text-xs text-white font-medium px-3 py-2.5 rounded-xl outline-none focus:ring-1 focus:ring-primary/50 appearance-none cursor-pointer hover:bg-white/[0.08] transition-colors"
                           style={selectStyle}
                         >
+                          <option value="ipaship">ipaShip AI</option>
                           <option value="anthropic">Anthropic (Claude)</option>
                           <option value="openai">OpenAI (GPT)</option>
                           <option value="gemini">Google Gemini</option>
@@ -872,31 +864,6 @@ export default function AuditPage() {
                       </div>
 
                       {/* API Key */}
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Key className="w-3.5 h-3.5 text-amber-400" />
-                          <span className="text-xs font-semibold text-white">API Key</span>
-                        </div>
-                        <div className="flex items-stretch gap-2">
-                          <input
-                            type={showApiKey ? 'text' : 'password'}
-                            value={claudeApiKey}
-                            onChange={(e) => setClaudeApiKey(e.target.value)}
-                            placeholder={provider === 'gemini' ? 'AIzaSy...' : `sk-${provider === 'anthropic' ? 'ant-' : provider === 'openrouter' ? 'or-' : 'proj-'}...`}
-                            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-mono"
-                          />
-                          {claudeApiKey && (
-                            <button
-                              type="button"
-                              onClick={() => setShowApiKey(!showApiKey)}
-                              className="px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-medium text-muted-foreground hover:text-white hover:bg-white/10 transition-colors shrink-0"
-                            >
-                              {showApiKey ? 'Hide' : 'Show'}
-                            </button>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-muted-foreground/50 leading-tight">Stored locally in your browser. Never sent to our servers.</p>
-                      </div>
 
                       {/* Context */}
                       <div className="flex-1 flex flex-col space-y-2">
@@ -931,16 +898,15 @@ export default function AuditPage() {
                     )}
                   </AnimatePresence>
 
-                   {/* Submit */}
+                  {/* Submit */}
                   <div className="mt-6">
                     <button
                       onClick={handleRunAudit}
                       disabled={!isReady || isUploading}
-                      className={`relative w-full py-3.5 md:py-4 rounded-2xl font-bold text-sm md:text-base flex items-center justify-center gap-2.5 transition-all duration-300 overflow-hidden ${
-                        isReady && !isUploading
+                      className={`relative w-full py-3.5 md:py-4 rounded-2xl font-bold text-sm md:text-base flex items-center justify-center gap-2.5 transition-all duration-300 overflow-hidden ${isReady && !isUploading
                           ? 'bg-gradient-to-r from-primary to-blue-600 text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.01] active:scale-[0.99]'
                           : 'bg-white/5 text-muted-foreground/50 cursor-not-allowed border border-white/5'
-                      }`}
+                        }`}
                     >
                       {isUploading
                         ? <><Loader2 className="w-5 h-5 animate-spin" /> Uploading… {uploadProgress}%</>
@@ -1329,87 +1295,87 @@ export default function AuditPage() {
                 <div className="p-5 md:p-10 overflow-y-auto max-h-[75vh] custom-scrollbar">
                   <div ref={completeReportRef} className="prose prose-invert max-w-none text-sm md:text-base leading-relaxed prose-headings:text-foreground prose-p:text-muted-foreground prose-p:leading-relaxed prose-li:text-muted-foreground prose-li:my-1 prose-strong:text-white prose-strong:font-bold prose-a:text-primary prose-a:transition-colors prose-code:text-primary prose-code:bg-primary/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-xs prose-code:border prose-code:border-primary/20 prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10 prose-pre:rounded-xl prose-pre:p-4">
                     <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          // ── Tables ───────────────────────────────────────
-                          table: ({ children }) => (
-                            <div className="overflow-x-auto my-6 rounded-xl border border-white/10 shadow-lg">
-                              <table className="w-full text-sm border-collapse">{children}</table>
-                            </div>
-                          ),
-                          thead: ({ children }) => (
-                            <thead className="bg-white/[0.06] border-b border-white/10">{children}</thead>
-                          ),
-                          tbody: ({ children }) => (
-                            <tbody className="divide-y divide-white/[0.05]">{children}</tbody>
-                          ),
-                          tr: ({ children }) => (
-                            <tr className="hover:bg-white/[0.03] transition-colors">{children}</tr>
-                          ),
-                          th: ({ children }) => (
-                            <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
-                              {children}
-                            </th>
-                          ),
-                          td: ({ children }) => {
-                            const text = String(children ?? '');
-                            // Severity badge colouring
-                            if (['CRITICAL','HIGH','MEDIUM','LOW'].includes(text.trim())) {
-                              const colours: Record<string, string> = {
-                                CRITICAL: 'bg-red-500/20 text-red-300 border-red-500/30',
-                                HIGH:     'bg-orange-500/20 text-orange-300 border-orange-500/30',
-                                MEDIUM:   'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-                                LOW:      'bg-blue-500/20 text-blue-300 border-blue-500/30',
-                              };
-                              return (
-                                <td className="px-4 py-3">
-                                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border ${colours[text.trim()]}`}>
-                                    {text.trim()}
-                                  </span>
-                                </td>
-                              );
-                            }
-                            return <td className="px-4 py-3 text-sm text-muted-foreground align-middle">{children}</td>;
-                          },
-                          // ── Ordered list — Phase 2 numbered items ────────
-                          ol: ({ children }) => (
-                            <ol className="my-4 space-y-3 list-none pl-0">{children}</ol>
-                          ),
-                          li: ({ children, ...props }) => {
-                            // Only style top-level items inside ol
-                            const ordered = (props as any).ordered ?? false;
-                            if (ordered) {
-                              const index = (props as any).index ?? 0;
-                              return (
-                                <li className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/10 transition-all">
-                                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 text-primary text-[10px] font-black flex items-center justify-center mt-0.5">
-                                    {index + 1}
-                                  </span>
-                                  <span className="text-sm text-muted-foreground leading-relaxed flex-1">{children}</span>
-                                </li>
-                              );
-                            }
-                            return <li className="text-sm text-muted-foreground leading-relaxed my-1.5 pl-1">{children}</li>;
-                          },
-                          // ── Blockquote ────────────────────────────────────
-                          blockquote: ({ children }) => (
-                            <blockquote className="my-4 pl-4 border-l-2 border-primary/40 bg-primary/5 rounded-r-xl py-3 pr-4 text-sm text-muted-foreground">
-                              {children}
-                            </blockquote>
-                          ),
-                          // ── Headings ──────────────────────────────────────
-                          h2: ({ children }) => (
-                            <h2 className="text-xl font-black text-white mt-10 mb-4 pb-2 border-b border-white/10 flex items-center gap-2">
-                              {children}
-                            </h2>
-                          ),
-                          h3: ({ children }) => (
-                            <h3 className="text-base font-bold text-white/90 mt-6 mb-3">{children}</h3>
-                          ),
-                        }}
-                      >
-                        {reportContent}
-                      </ReactMarkdown>
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        // ── Tables ───────────────────────────────────────
+                        table: ({ children }) => (
+                          <div className="overflow-x-auto my-6 rounded-xl border border-white/10 shadow-lg">
+                            <table className="w-full text-sm border-collapse">{children}</table>
+                          </div>
+                        ),
+                        thead: ({ children }) => (
+                          <thead className="bg-white/[0.06] border-b border-white/10">{children}</thead>
+                        ),
+                        tbody: ({ children }) => (
+                          <tbody className="divide-y divide-white/[0.05]">{children}</tbody>
+                        ),
+                        tr: ({ children }) => (
+                          <tr className="hover:bg-white/[0.03] transition-colors">{children}</tr>
+                        ),
+                        th: ({ children }) => (
+                          <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
+                            {children}
+                          </th>
+                        ),
+                        td: ({ children }) => {
+                          const text = String(children ?? '');
+                          // Severity badge colouring
+                          if (['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].includes(text.trim())) {
+                            const colours: Record<string, string> = {
+                              CRITICAL: 'bg-red-500/20 text-red-300 border-red-500/30',
+                              HIGH: 'bg-orange-500/20 text-orange-300 border-orange-500/30',
+                              MEDIUM: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+                              LOW: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+                            };
+                            return (
+                              <td className="px-4 py-3">
+                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border ${colours[text.trim()]}`}>
+                                  {text.trim()}
+                                </span>
+                              </td>
+                            );
+                          }
+                          return <td className="px-4 py-3 text-sm text-muted-foreground align-middle">{children}</td>;
+                        },
+                        // ── Ordered list — Phase 2 numbered items ────────
+                        ol: ({ children }) => (
+                          <ol className="my-4 space-y-3 list-none pl-0">{children}</ol>
+                        ),
+                        li: ({ children, ...props }) => {
+                          // Only style top-level items inside ol
+                          const ordered = (props as any).ordered ?? false;
+                          if (ordered) {
+                            const index = (props as any).index ?? 0;
+                            return (
+                              <li className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/10 transition-all">
+                                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 text-primary text-[10px] font-black flex items-center justify-center mt-0.5">
+                                  {index + 1}
+                                </span>
+                                <span className="text-sm text-muted-foreground leading-relaxed flex-1">{children}</span>
+                              </li>
+                            );
+                          }
+                          return <li className="text-sm text-muted-foreground leading-relaxed my-1.5 pl-1">{children}</li>;
+                        },
+                        // ── Blockquote ────────────────────────────────────
+                        blockquote: ({ children }) => (
+                          <blockquote className="my-4 pl-4 border-l-2 border-primary/40 bg-primary/5 rounded-r-xl py-3 pr-4 text-sm text-muted-foreground">
+                            {children}
+                          </blockquote>
+                        ),
+                        // ── Headings ──────────────────────────────────────
+                        h2: ({ children }) => (
+                          <h2 className="text-xl font-black text-white mt-10 mb-4 pb-2 border-b border-white/10 flex items-center gap-2">
+                            {children}
+                          </h2>
+                        ),
+                        h3: ({ children }) => (
+                          <h3 className="text-base font-bold text-white/90 mt-6 mb-3">{children}</h3>
+                        ),
+                      }}
+                    >
+                      {reportContent}
+                    </ReactMarkdown>
                   </div>
                 </div>
               </div>
