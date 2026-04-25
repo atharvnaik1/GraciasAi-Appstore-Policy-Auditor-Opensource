@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start -p ${PORT:-8080}"
+    "start": "next start -H 0.0.0.0 -p $PORT"
   },
   "keywords": [],
   "author": "",
