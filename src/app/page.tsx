@@ -23,6 +23,7 @@ const providerModels: Record<string, { label: string; value: string }[]> = {
     { label: 'Claude 3.5 Haiku', value: 'claude-3-5-haiku-20241022' },
     { label: 'Claude Opus 4', value: 'claude-opus-4-20250514' },
   ],
+
   openai: [
     { label: 'GPT-4o', value: 'gpt-4o' },
     { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
@@ -741,10 +742,10 @@ export default function AuditPage() {
                         onDrop={handleDrop}
                         onClick={() => fileInputRef.current?.click()}
                         className={`relative cursor-pointer rounded-2xl overflow-hidden transition-all duration-300 h-full min-h-[200px] md:min-h-[240px] flex flex-col items-center justify-center group border-2 border-dashed ${isDragging
-                            ? 'border-primary bg-primary/5'
-                            : file
-                              ? 'border-green-500/50 bg-green-500/5'
-                              : 'border-white/10 hover:border-primary/30 hover:bg-white/[0.02]'
+                          ? 'border-primary bg-primary/5'
+                          : file
+                            ? 'border-green-500/50 bg-green-500/5'
+                            : 'border-white/10 hover:border-primary/30 hover:bg-white/[0.02]'
                           }`}
                       >
                         <input
@@ -904,8 +905,8 @@ export default function AuditPage() {
                       onClick={handleRunAudit}
                       disabled={!isReady || isUploading}
                       className={`relative w-full py-3.5 md:py-4 rounded-2xl font-bold text-sm md:text-base flex items-center justify-center gap-2.5 transition-all duration-300 overflow-hidden ${isReady && !isUploading
-                          ? 'bg-gradient-to-r from-primary to-blue-600 text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.01] active:scale-[0.99]'
-                          : 'bg-white/5 text-muted-foreground/50 cursor-not-allowed border border-white/5'
+                        ? 'bg-gradient-to-r from-primary to-blue-600 text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.01] active:scale-[0.99]'
+                        : 'bg-white/5 text-muted-foreground/50 cursor-not-allowed border border-white/5'
                         }`}
                     >
                       {isUploading
