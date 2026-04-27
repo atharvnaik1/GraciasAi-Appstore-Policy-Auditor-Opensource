@@ -9,7 +9,7 @@ set -euo pipefail
 APP_NAME="ipaship"
 APP_DIR="/opt/ipaship"
 NODE_MAJOR=20
-APP_PORT=3000
+APP_PORT=8080
 SERVER_IP="216.48.182.78"
 
 echo ""

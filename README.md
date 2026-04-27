@@ -57,7 +57,7 @@ echo 'MONGODB_URI=your_mongodb_uri_here' > .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:8080](http://localhost:8080) in your browser.
 
 ### Production Build
 
